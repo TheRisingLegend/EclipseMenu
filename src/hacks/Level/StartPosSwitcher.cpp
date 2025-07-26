@@ -101,7 +101,7 @@ namespace eclipse::hacks::Level {
 
                 // level total
                 GJGameLevel* level = gameLayer->m_level;
-                level->setAttempts(level->m_attempts.value() - 1);
+                level->m_attempts = level->m_attempts.value() - 1;
             };
 
             float delay = config::get<float>("level.startpos_switcher.delay", 0.f);

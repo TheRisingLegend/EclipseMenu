@@ -93,6 +93,15 @@ namespace eclipse::hacks::Level {
 
                 playLayer->startMusic();
                 playLayer->updateTestModeLabel();
+
+                /* Properly use attempts when switching */
+                // curr session
+                GJBaseGameLayer* gameLayer = utils::get<GJBaseGameLayer>();
+                gameLayer->m_attempts = gameLayer->m_attempts - 1;
+
+                // level total
+                GJGameLevel* level = gameLayer->m_level;
+                level->m_attempts = level->m_attempts.value() - 1;
             };
 
             float delay = config::get<float>("level.startpos_switcher.delay", 0.f);

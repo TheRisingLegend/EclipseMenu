@@ -26,8 +26,7 @@ namespace eclipse::hacks::Level {
 
         void resetLevel() {
             PlayLayer::resetLevel();
-            m_fields->fromZero = std::fabs(utils::getActualProgress(this)) < 1e-2;
-            geode::log::debug("Actual progress on reset: {}", utils::getActualProgress(this));
+            m_fields->fromZero = std::fabs(utils::getActualProgress(this)) == 0;
         }
 
         void levelComplete() {

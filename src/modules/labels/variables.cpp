@@ -480,7 +480,7 @@ namespace eclipse::labels {
 
         cocos2d::CCDictionary* currencyScores;
         if (dailyId <= 0) {
-            if (level->m_levelType == GJLevelType::Local) {
+            if (level->m_levelType == GJLevelType::Main) {
                 currencyScores = gsm->m_mainCurrencyScores;
             } else if (level->m_gauntletLevel) {
                 currencyScores = gsm->m_gauntletCurrencyScores;
@@ -633,7 +633,7 @@ namespace eclipse::labels {
             auto coinKey = gameLayer->m_level->getCoinKey(i + 1);
             bool saved = false;
 
-            if (gameLayer->m_level->m_levelType == GJLevelType::Local) {
+            if (gameLayer->m_level->m_levelType == GJLevelType::Main) {
                 saved = utils::get<GameStatsManager>()->hasSecretCoin(coinKey);
             } else {
                 saved = utils::get<GameStatsManager>()->hasUserCoin(coinKey);
@@ -746,10 +746,38 @@ namespace eclipse::labels {
             return true;
         }
 
+        bool shouldSave() {
+            bool safeMode = config::get<"global.safemode", bool>(false);
+            bool autoSafeMode = config::get<"global.autosafemode", bool>(false);
+            bool freezeBestRun = config::get<"global.safemode.freeze_best_run", bool>(false);
+            auto trippedLastAttempt = config::getTemp<bool>("trippedSafeMode", false);
+            auto hasCheats = config::getTemp<bool>("hasCheats", false);
+
+            if((autoSafeMode && freezeBestRun && (hasCheats || trippedLastAttempt))
+                || (safeMode && freezeBestRun)) return false;
+
+            if(config::get<"player.noclip", bool>(false) && !m_levelEndAnimationStarted && !m_hasCompletedLevel) {
+                if (config::get<"player.noclip.acclimit.toggle", bool>(false)) {
+                    float acc = config::getTemp<float>("noclipAccuracy", 100.f);
+                    float limit = config::get<"player.noclip.acclimit", float>(95.f);
+                    if (acc >= limit)
+                        return false;
+                }
+                if (config::get<"player.noclip.deathlimit.toggle", bool>(false)) {
+                    int deaths = config::getTemp<int>("noclipDeaths", 0);
+                    int limit = config::get<int>("player.noclip.deathlimit", 2);
+                    if (deaths < limit)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
         void saveBestRun() {
             auto fields = m_fields.self();
             fields->m_bestRun = utils::getActualProgress(this);
-            if ((fields->m_bestRun - fields->m_runFrom) >= (fields->m_lastBestRun - fields->m_lastRunFrom)) {
+            if (shouldSave() && (fields->m_bestRun - fields->m_runFrom) >= (fields->m_lastBestRun - fields->m_lastRunFrom)) {
                 fields->m_lastBestRun = fields->m_bestRun;
                 fields->m_lastRunFrom = fields->m_runFrom;
                 auto& manager = VariableManager::get();

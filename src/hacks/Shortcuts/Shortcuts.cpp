@@ -5,6 +5,8 @@
 #include <modules/hack/hack.hpp>
 #include <modules/i18n/translations.hpp>
 
+struct ToggleDevToolsEvent : geode::Event { ToggleDevToolsEvent() {} };
+
 namespace eclipse::hacks::Shortcuts {
     class $hack(Shortcuts) {
         using FileEvent = geode::Task<geode::Result<std::filesystem::path>>;
@@ -17,6 +19,14 @@ namespace eclipse::hacks::Shortcuts {
                 scene->addChild(options, zOrder + 1);
                 options->showLayer(false);
             }
+        }
+
+        static void openGraphicSettings() {
+            #ifndef GEODE_IS_MACOS
+            if (auto* options = VideoOptionsLayer::create()) {
+                options->show();
+            }
+            #endif
         }
 
         // recreation since im not sure if i can even use fmt::format in bindings
@@ -72,7 +82,7 @@ namespace eclipse::hacks::Shortcuts {
                         int levelid = level->m_levelID.value();
                         // Delete completion
                         gsm->setStat("4", gsm->getStat("4") - 1); // completed levels
-                        auto levelKey = getLevelKey(level->m_levelID, level->m_levelType != GJLevelType::Local, level->m_dailyID > 0, level->m_gauntletLevel, level->m_dailyID > 200000);
+                        auto levelKey = getLevelKey(level->m_levelID, level->m_levelType != GJLevelType::Main, level->m_dailyID > 0, level->m_gauntletLevel, level->m_dailyID > 200000);
                         geode::log::debug("Deleting level key {} from completed levels", levelKey);
                         gsm->m_completedLevels->removeObjectForKey(levelKey);
                         if (level->m_stars > 0) {
@@ -114,7 +124,7 @@ namespace eclipse::hacks::Shortcuts {
                     level->m_newNormalPercent2 = 0;
                     level->m_orbCompletion = 0;
                     level->m_54 = 0;
-                    level->m_k111 = 0;
+                    level->m_platformerSeed = 0;
                     level->m_bestPoints = 0;
                     level->m_bestTime = 0;
 
@@ -164,11 +174,12 @@ namespace eclipse::hacks::Shortcuts {
             m_listener.bind([](FileEvent::Event* event) {
                 if (auto value = event->getValue()) {
                     auto path = value->unwrapOr("");
-                    if (path.empty() || !std::filesystem::exists(path))
+                    std::error_code ec;
+                    if (path.empty() || !std::filesystem::exists(path, ec))
                         return;
 
                     geode::log::warn("Injecting DLL: {}", path);
-                    HMODULE module = LoadLibraryA(path.string().c_str());
+                    HMODULE module = LoadLibraryW(path.native().c_str());
                     if (!module) return geode::log::error("Failed to inject DLL: {}", path);
 
                     // Call DLLMain with DLL_PROCESS_ATTACH
@@ -210,13 +221,15 @@ namespace eclipse::hacks::Shortcuts {
             FMODAudioEngine::sharedEngine()->setEffectsVolume(1.F);
         }
 
-    #ifdef GEODE_IS_MOBILE
         static void openDevtools() {
+            // OLD:
             // simple hack that will call onMoreGames, which should open devtools
             // calling it on CCScene just to make sure hook will not actually crash on nullptr in case someone else hooked it
-            reinterpret_cast<MenuLayer*>(utils::get<cocos2d::CCScene>())->onMoreGames(nullptr);
+            // reinterpret_cast<MenuLayer*>(utils::get<cocos2d::CCScene>())->onMoreGames(nullptr);
+
+            // DevTools now has an event to open it
+            ToggleDevToolsEvent().post();
         }
-    #endif
 
         static int getSecretCoinsRange(int min, int max) {
             auto glm = utils::get<GameLevelManager>();
@@ -351,6 +364,9 @@ namespace eclipse::hacks::Shortcuts {
             tab->addButton("shortcuts.reset-sfx-volume")->setDescription()->callback(resetSFXVolume)->handleKeybinds();
             tab->addButton("shortcuts.recount-secret-coins")->setDescription()->callback(recountSecretCoins)->handleKeybinds();
             tab->addButton("shortcuts.show-level-password")->setDescription()->callback(showLevelPassword)->handleKeybinds();
+            #ifndef GEODE_IS_MACOS
+            tab->addButton("shortcuts.show-graphic-settings")->setDescription()->callback(openGraphicSettings)->handleKeybinds();
+            #endif
 
             auto manager = keybinds::Manager::get();
             manager->addListener("shortcut.p1jump", [](bool down) {
@@ -365,7 +381,7 @@ namespace eclipse::hacks::Shortcuts {
             });
         }
 
-        GEODE_ANDROID(void lateInit() override {
+        void lateInit() override {
             auto devtools = geode::Loader::get()->getLoadedMod("geode.devtools");
             if (devtools) {
                 gui::MenuTab::find("tab.shortcuts")
@@ -374,7 +390,7 @@ namespace eclipse::hacks::Shortcuts {
                     ->callback(openDevtools)
                     ->handleKeybinds();
             }
-        })
+        }
 
         [[nodiscard]] const char* getId() const override { return "Shortcuts"; }
     };

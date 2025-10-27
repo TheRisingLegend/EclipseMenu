@@ -52,18 +52,18 @@ class $modify(EclipseButtonMLHook, MenuLayer) {
     bool init() override {
         if (!MenuLayer::init()) return false;
 
-        #ifdef ECLIPSE_DEBUG_BUILD
-        {
-            auto menu = this->getChildByID("bottom-menu");
-            auto rendererSwitchButton = CCMenuItemSpriteExtra::create(
-                cocos2d::CCSprite::createWithSpriteFrameName("GJ_editModeBtn_001.png"),
-                this, menu_selector(EclipseButtonMLHook::onToggleRenderer)
-            );
-            rendererSwitchButton->setID("render-switch"_spr);
-            menu->addChild(rendererSwitchButton);
-            menu->updateLayout();
-        }
-        #endif
+        // #ifdef ECLIPSE_DEBUG_BUILD
+        // {
+        //     auto menu = this->getChildByID("bottom-menu");
+        //     auto rendererSwitchButton = CCMenuItemSpriteExtra::create(
+        //         cocos2d::CCSprite::createWithSpriteFrameName("GJ_editModeBtn_001.png"),
+        //         this, menu_selector(EclipseButtonMLHook::onToggleRenderer)
+        //     );
+        //     rendererSwitchButton->setID("render-switch"_spr);
+        //     menu->addChild(rendererSwitchButton);
+        //     menu->updateLayout();
+        // }
+        // #endif
 
         if (s_isInitialized) return true;
 
@@ -90,24 +90,20 @@ class $modify(EclipseButtonMLHook, MenuLayer) {
         return true;
     }
 
-    void onToggleRenderer(CCObject* sender) {
-        auto type = gui::Engine::getRendererType() == gui::RendererType::ImGui
-                        ? gui::RendererType::Cocos2d
-                        : gui::RendererType::ImGui;
-        gui::ThemeManager::get()->setRenderer(type);
-    }
+    // void onToggleRenderer(CCObject* sender) {
+    //     auto type = gui::Engine::getRendererType() == gui::RendererType::ImGui
+    //                     ? gui::RendererType::Cocos2d
+    //                     : gui::RendererType::ImGui;
+    //     gui::ThemeManager::get()->setRenderer(type);
+    // }
 };
 
 class HackUpdater : public cocos2d::CCObject {
 public:
     static HackUpdater* create() {
         auto ret = new HackUpdater();
-        if (ret) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
+        ret->autorelease();
+        return ret;
     }
 
     void update(float dt) override {
@@ -153,22 +149,27 @@ $on_mod(Loaded) {
 
     // Add bitmap fonts to texture search path
     auto bmfontPath = geode::Mod::get()->getConfigDir() / "bmfonts";
-    std::filesystem::create_directories(bmfontPath / GEODE_MOD_ID);
-    utils::get<cocos2d::CCFileUtils>()->addSearchPath(bmfontPath.string().c_str());
-    geode::log::info("Added bitmap fonts to search path: {}", bmfontPath.string());
+    std::error_code ec;
+    std::filesystem::create_directories(bmfontPath / GEODE_MOD_ID, ec);
+    if (ec) {
+        geode::log::warn("Failed to create bitmap fonts directory {}: {}", bmfontPath, ec.message());
+    }
+
+    utils::get<cocos2d::CCFileUtils>()->addSearchPath(geode::utils::string::pathToString(bmfontPath).c_str());
+    geode::log::info("Added bitmap fonts to search path: {}", bmfontPath);
 
     // Add "Interface" tab to edit theme settings
     {
         using namespace gui;
         auto tab = MenuTab::find("tab.interface");
         std::vector<std::string> themeNames = {};
-        for (ThemeMeta theme : ThemeManager::get()->listAvailableThemes()) {
+        for (auto const& theme : ThemeManager::listAvailableThemes()) {
             themeNames.push_back(theme.name);
         }
         if (!themeNames.empty()) {
             auto themeCombo = tab->addCombo("interface.theme", "themeIndex", themeNames, 0);
             themeCombo->callback([](int value) {
-                ThemeManager::get()->loadTheme(ThemeManager::get()->listAvailableThemes()[value].path);
+                ThemeManager::get()->loadTheme(ThemeManager::listAvailableThemes()[value].path);
                 ThemeManager::get()->setUIScale(config::getTemp<float>("uiScale", 1.f));
             });
         }
@@ -220,26 +221,26 @@ $on_mod(Loaded) {
         config::setIfEmpty("menu.animationEasingMode", animation::EasingMode::EaseInOut);
         auto animateToggle = tab->addToggle("menu.animateWindows")->setDescription();
         animateToggle->addOptions([](auto opt) {
-                opt->addInputFloat("menu.animationDuration", 0.f, 10.f, "%.3f s");
-                opt->addCombo("menu.animationEasingType", {
-                    i18n::get_("menu.animationEasingType.0"),
-                    i18n::get_("menu.animationEasingType.1"),
-                    i18n::get_("menu.animationEasingType.2"),
-                    i18n::get_("menu.animationEasingType.3"),
-                    i18n::get_("menu.animationEasingType.4"),
-                    i18n::get_("menu.animationEasingType.5"),
-                    i18n::get_("menu.animationEasingType.6"),
-                    i18n::get_("menu.animationEasingType.7"),
-                    i18n::get_("menu.animationEasingType.8"),
-                    i18n::get_("menu.animationEasingType.9"),
-                    i18n::get_("menu.animationEasingType.10"),
-                }, 2);
-                opt->addCombo("menu.animationEasingMode", {
-                    i18n::get_("menu.animationEasingMode.0"),
-                    i18n::get_("menu.animationEasingMode.1"),
-                    i18n::get_("menu.animationEasingMode.2"),
-                }, 2);
-            });
+            opt->addInputFloat("menu.animationDuration", 0.f, 10.f, "%.3f s");
+            opt->addCombo("menu.animationEasingType", {
+                i18n::get_("menu.animationEasingType.0"),
+                i18n::get_("menu.animationEasingType.1"),
+                i18n::get_("menu.animationEasingType.2"),
+                i18n::get_("menu.animationEasingType.3"),
+                i18n::get_("menu.animationEasingType.4"),
+                i18n::get_("menu.animationEasingType.5"),
+                i18n::get_("menu.animationEasingType.6"),
+                i18n::get_("menu.animationEasingType.7"),
+                i18n::get_("menu.animationEasingType.8"),
+                i18n::get_("menu.animationEasingType.9"),
+                i18n::get_("menu.animationEasingType.10"),
+            }, 2);
+            opt->addCombo("menu.animationEasingMode", {
+                i18n::get_("menu.animationEasingMode.0"),
+                i18n::get_("menu.animationEasingMode.1"),
+                i18n::get_("menu.animationEasingMode.2"),
+            }, 2);
+        });
         animateToggle->setFlags(ComponentFlags::OnlyTabbed);
 
     #ifdef ECLIPSE_USE_FLOATING_BUTTON
@@ -316,15 +317,15 @@ $on_mod(Loaded) {
                         for (auto& component : tab->getComponents())
                             component->removeFlag(ComponentFlags::SearchedFor);
                     }
-                    
+
                     hasSearched = false;
                 }
             } else {
                 hasSearched = true;
-                
+
                 for (auto& tab : Engine::get()->getTabs()) {
                     bool hasFoundComponent = false;
-                    
+
                     for (auto& component : tab->getComponents()) {
                         if (utils::matchesStringFuzzy(i18n::get(component->getTitle()), input)) {
                             component->addFlag(ComponentFlags::SearchedFor);
@@ -343,4 +344,10 @@ $on_mod(Loaded) {
         schedule_selector(HackUpdater::update),
         HackUpdater::create(), 0.f, false
     );
+
+    geode::listenForSettingChanges<std::string>("menu-style", [](std::string const& style) {
+        gui::Engine::get()->setRenderer(
+            style == "ImGui" ? gui::RendererType::ImGui : gui::RendererType::Cocos2d
+        );
+    });
 }

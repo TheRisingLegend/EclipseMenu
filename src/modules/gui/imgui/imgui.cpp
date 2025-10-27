@@ -124,8 +124,31 @@ namespace eclipse::gui::imgui {
 
     void FontManager::FontMetadata::load() {
         auto fontSize = ThemeManager::get()->getFontSize() * DEFAULT_SCALE;
-        m_font = ImGui::GetIO().Fonts->AddFontFromFileTTF(
-            m_path.string().c_str(), fontSize,
+        std::ifstream file(m_path, std::ios::binary);
+        if (!file.is_open()) {
+            geode::log::error("Failed to open font file: {}", m_path);
+            return;
+        }
+
+        file.seekg(0, std::ios::end);
+        auto size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        if (size <= 0) {
+            geode::log::error("Font file is empty: {}", m_path);
+            return;
+        }
+
+        auto data = new uint8_t[size]; // ImGui takes ownership
+        file.read(reinterpret_cast<char*>(data), size);
+        if (!file) {
+            geode::log::error("Failed to read font file: {}", m_path);
+            delete[] data;
+            return;
+        }
+        file.close();
+
+        m_font = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+            data, size, fontSize,
             nullptr, getGlyphRange(i18n::getRequiredGlyphRanges())
         );
     }
@@ -133,12 +156,20 @@ namespace eclipse::gui::imgui {
     std::vector<FontManager::FontMetadata> FontManager::fetchAvailableFonts() {
         std::vector<FontMetadata> result;
         auto globFonts = [&](std::filesystem::path const& path) {
-            std::filesystem::create_directories(path);
-            for (auto& entry : std::filesystem::directory_iterator(path)) {
+            std::error_code ec;
+            std::filesystem::create_directories(path, ec);
+            if (ec) {
+                geode::log::warn("Failed to create fonts directory {}: {}", path, ec.message());
+                return;
+            }
+            for (auto& entry : std::filesystem::directory_iterator(path, ec)) {
                 if (entry.path().extension() != ".ttf") continue;
-                auto filename = entry.path().stem().string();
+                auto filename = geode::utils::string::pathToString(entry.path().stem());
                 FontMetadata font{filename, entry.path()};
                 result.push_back(font);
+            }
+            if (ec) {
+                geode::log::warn("Failed to list fonts in {}: {}", path, ec.message());
             }
         };
 

@@ -25,8 +25,8 @@ namespace eclipse::hacks::Level {
         };
 
         void resetLevel() {
-            m_fields->fromZero = m_gameState.m_currentProgress == 0;
             PlayLayer::resetLevel();
+            m_fields->fromZero = utils::getActualProgress(this) == 0;
         }
 
         void levelComplete() {

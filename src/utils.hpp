@@ -1,6 +1,7 @@
 #pragma once
 
 #include <random>
+#include <utility>
 #include <modules/utils/SingletonCache.hpp>
 
 enum class PlayerMode {
@@ -14,9 +15,10 @@ namespace eclipse::gui {
 }
 
 namespace eclipse::utils {
+#if 0 // deprecated since Geode v5
     /// @brief Returns a random device.
     /// @return Random device.
-    std::random_device& getRng();
+    std::mt19937_64& getRng();
 
     /// @brief Generates a random number between min and max.
     /// @tparam T Type of the number.
@@ -44,6 +46,15 @@ namespace eclipse::utils {
     T random(T max) {
         return random<T>(0, max);
     }
+#else
+    auto random(auto min, auto max) {
+        return geode::utils::random::generate(min, max);
+    }
+
+    auto random(auto max) {
+        return geode::utils::random::generate(0, max);
+    }
+#endif
 
     /// @brief Allows to access a member of a struct by offset.
     /// @tparam T Type of the member.
@@ -82,13 +93,13 @@ namespace eclipse::utils {
     /// @brief Bugfixed version of getCurrentPercent.
     /// @param game GJBaseGameLayer to get the progress from.
     /// @return Actual progress of the level.
-    float getActualProgress(class GJBaseGameLayer* game);
+    double getActualProgress(class GJBaseGameLayer* game);
 
     /// @brief Make the cursor visible/hidden under certain conditions
     void updateCursorState(bool visible);
 
     /// @brief Get month name from its number. (0-11)
-    const char* getMonthName(int month);
+    std::string_view getMonthName(int month);
 
     using millis = std::chrono::milliseconds;
     using seconds = std::chrono::seconds;
@@ -108,13 +119,13 @@ namespace eclipse::utils {
     PlayerMode getGameMode(class PlayerObject* player);
 
     /// @brief Get the name of a game mode.
-    const char* gameModeName(PlayerMode mode);
+    std::string_view gameModeName(PlayerMode mode);
 
     /// @brief Get icon frame for a specific mode.
     int getPlayerIcon(PlayerMode mode);
 
     /// @brief Get current chosen TPS.
-    float getTPS();
+    double getTPS();
 
     /// @brief Get custom CCMenu created in UILayer.
     class cocos2d::CCMenu* getEclipseUILayer();
@@ -129,7 +140,7 @@ namespace eclipse::utils {
     /// @param page Page number to retrieve.
     /// @return A paginated span containing the items of the specified page.
     template <typename T>
-    std::span<T> paginate(const std::vector<T>& array, int size, int page) {
+    std::span<T> paginate(std::vector<T> const& array, int size, int page) {
         if (size <= 0) return {};
         int startIndex = page * size;
         int endIndex = std::min(startIndex + size, static_cast<int>(array.size()));
@@ -145,7 +156,7 @@ namespace eclipse::utils {
     /// @param page "Gradual" page number to retrieve.
     /// @return A paginated span containing the items of the specified "gradual" page.
     template <typename T>
-    std::span<T> gradualPaginate(const std::vector<T>& array, int size, int page) {
+    std::span<T> gradualPaginate(std::vector<T> const& array, int size, int page) {
         if (size <= 0) return {};
         if (page < 0) return {};
         int startIndex = page;

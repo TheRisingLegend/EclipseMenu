@@ -31,8 +31,8 @@ namespace eclipse::keybinds {
         return result;
     }
 
-    std::string const& keyToString(Keys key) {
-        static const std::unordered_map<Keys, std::string> names = {
+    static ZStringView keyToString(Keys key) {
+        static std::unordered_map<Keys, std::string> const names = {
             { Keys::None, "-" },
 
             { Keys::A, "A" }, { Keys::B, "B" }, { Keys::C, "C" }, { Keys::D, "D" },
@@ -76,11 +76,19 @@ namespace eclipse::keybinds {
 
             { Keys::Up, "Up" }, { Keys::Down, "Down" }, { Keys::Left, "Left" }, { Keys::Right, "Right" },
 
-            { Keys::LeftShift, "Shift" }, { Keys::LeftControl, "Ctrl" }, { Keys::LeftAlt, "Alt" }, { Keys::LeftSuper, "Super" },
-            { Keys::RightShift, "RShift" }, { Keys::RightControl, "RCtrl" }, { Keys::RightAlt, "RAlt" }, { Keys::RightSuper, "RSuper" },
+            { Keys::LeftShift, "Shift" }, { Keys::LeftControl, "Ctrl" }, { Keys::LeftAlt, "Alt" }, { Keys::LeftSuper, GEODE_WINDOWS("Win") GEODE_MACOS("Command") GEODE_ANDROID("Super") GEODE_IOS("Command") },
+            { Keys::RightShift, "RShift" }, { Keys::RightControl, "RCtrl" }, { Keys::RightAlt, "RAlt" }, { Keys::RightSuper, GEODE_WINDOWS("RWin") GEODE_MACOS("RCommand") GEODE_ANDROID("RSuper") GEODE_IOS("RCommand") },
 
             { Keys::MouseLeft, "LMB" }, { Keys::MouseRight, "RMB" }, { Keys::MouseMiddle, "MMB" },
             { Keys::MouseButton4, "Mouse 4" }, { Keys::MouseButton5, "Mouse 5" },
+
+            { Keys::GamepadButtonA, "Gamepad A" }, { Keys::GamepadButtonB, "Gamepad B" },
+            { Keys::GamepadButtonX, "Gamepad X" }, { Keys::GamepadButtonY, "Gamepad Y" },
+            { Keys::GamepadButtonUp, "Gamepad Up" }, { Keys::GamepadButtonDown, "Gamepad Down" },
+            { Keys::GamepadButtonLeft, "Gamepad Left" }, { Keys::GamepadButtonRight, "Gamepad Right" },
+            { Keys::GamepadButtonLeftBumper, "Gamepad LB" }, { Keys::GamepadButtonRightBumper, "Gamepad RB" },
+            { Keys::GamepadButtonLeftTrigger, "Gamepad LT" }, { Keys::GamepadButtonRightTrigger, "Gamepad RT" },
+            { Keys::GamepadButtonBack, "Gamepad Back" }, { Keys::GamepadButtonStart, "Gamepad Start" },
 
             { Keys::MenuKey, "Menu Key" }, { Keys::LastKey, "Last Key" },
             { Keys::Unknown, "Unknown" }
@@ -91,12 +99,12 @@ namespace eclipse::keybinds {
         return names.at(Keys::Unknown);
     }
 
-    static std::map<std::string, std::shared_ptr<gui::KeybindComponent>> s_keybindComponents;
-    static std::shared_ptr<gui::LabelComponent> s_hintLabel;
+    static std::map<std::string, gui::KeybindComponent*> s_keybindComponents;
+    static gui::LabelComponent* s_hintLabel;
 
     void updateHintLabel() {
         if (!s_hintLabel) return;
-        auto components = gui::MenuTab::find("tab.keybinds")->getComponents();
+        auto& components = gui::MenuTab::find("tab.keybinds")->getComponents();
         s_hintLabel->setText(
             components.size() <= 3 ? i18n::get_("keybinds.hint") : ""
         );
@@ -109,17 +117,17 @@ namespace eclipse::keybinds {
         }
     }
 
-    std::shared_ptr<Manager> Manager::get() {
-        static auto instance = std::make_shared<Manager>();
-        return instance;
+    Manager* Manager::get() {
+        static Manager instance;
+        return &instance;
     }
 
-    inline Keys getCfgKeyInternal(std::string_view id) {
-        return config::get<Keys>(id, Keys::None);
+    inline KeybindProps getCfgKeyInternal(std::string_view id) {
+        return config::get<KeybindProps>(id, Keys::None);
     }
 
-    inline Keys getCfgKey(std::string_view id) {
-        return config::get<Keys>(fmt::format("keybind.{}.key", id), Keys::None);
+    inline KeybindProps getCfgKey(std::string_view id) {
+        return config::get<KeybindProps>(fmt::format("keybind.{}.key", id), Keys::None);
     }
 
     inline bool getCfgState(std::string_view id) {
@@ -127,7 +135,7 @@ namespace eclipse::keybinds {
     }
 
     Keybind& Manager::registerKeybindInternal(
-        const std::string& id, const std::string& title, const std::function<void(bool)>& callback, bool internal
+        std::string id, std::string title, Function<void(KeyEvent)>&& callback, bool internal
     ) {
         // check if this id already exists
         for (auto& keybind : m_keybinds) {
@@ -136,7 +144,7 @@ namespace eclipse::keybinds {
             }
         }
 
-        m_keybinds.emplace_back(Keys::None, id, title, callback, internal);
+        m_keybinds.emplace_back(Keys::None, std::move(id), std::move(title), std::move(callback), internal);
         auto& keybind = m_keybinds.back();
         if (internal) {
             keybind.setKey(getCfgKeyInternal(keybind.getId()));
@@ -150,16 +158,21 @@ namespace eclipse::keybinds {
     }
 
     Keybind& Manager::registerKeybind(
-        const std::string& id, const std::string& title, const std::function<void(bool)>& callback
+        std::string id, std::string title, Function<void(KeyEvent)>&& callback
     ) {
-        return this->registerKeybindInternal(id, title, callback, false);
+        return this->registerKeybindInternal(std::move(id), std::move(title), std::move(callback), false);
     }
 
-    Keybind& Manager::addListener(const std::string& id, const std::function<void(bool)>& callback) {
-        return this->registerKeybindInternal(id, id, callback, true);
+    Keybind& Manager::addListener(std::string id, Function<void(KeyEvent)>&& callback) {
+        std::string title = id;
+        return this->registerKeybindInternal(std::move(id), std::move(title), std::move(callback), true);
     }
 
-    bool Manager::unregisterKeybind(const std::string& id) {
+    void Manager::registerGlobalListener(Function<bool(KeyEvent)>&& callback) {
+        m_globalListeners.push_back(std::move(callback));
+    }
+
+    bool Manager::unregisterKeybind(std::string const& id) {
         for (auto it = m_keybinds.begin(); it != m_keybinds.end(); ++it) {
             if (it->getId() == id) {
                 // apply disabled state to process the GUI
@@ -208,7 +221,7 @@ namespace eclipse::keybinds {
 
                 auto idStr = std::string(id);
                 gui::Engine::queueAfterDrawing(
-                    [idStr, state, keybind] {
+                    [idStr = std::move(idStr), state, &keybind] {
                         auto tab = gui::MenuTab::find("tab.keybinds");
                         if (state) {
                             // Add the keybind to the GUI
@@ -216,7 +229,7 @@ namespace eclipse::keybinds {
                                 keybind.getTitle(), fmt::format("keybind.{}.key", idStr), true
                             );
                             keybindComponent->callback(
-                                [tab, keybindComponent, idStr](Keys key) {
+                                [tab, keybindComponent, idStr](KeybindProps key) {
                                     auto keybind = Manager::get()->getKeybind(idStr);
 
                                     if (!keybind.has_value()) return;
@@ -273,12 +286,17 @@ namespace eclipse::keybinds {
         return false;
     }
 
-    void Manager::registerKeyPress(Keys key) {
-        m_keyStates[key] = true;
+    void Manager::registerKeyPress(KeyEvent key) {
+        m_keyStates[key.props.key] = true;
+        for (auto& listener : m_globalListeners) {
+            if (listener(key)) {
+                return;
+            }
+        }
 
         auto menuToggle = getKeybind("menu.toggle");
-        if (menuToggle && key == menuToggle.value().get().getKey()) {
-            menuToggle.value().get().push();
+        if (menuToggle && key.props == menuToggle.value().get().getKey()) {
+            menuToggle.value().get().execute(key);
             return;
         }
 
@@ -287,9 +305,23 @@ namespace eclipse::keybinds {
         bool ignoreInPlayLayer = !utils::get<PlayLayer>() && config::get<bool>("keybind.in-game-only", false);
 
         for (auto& keybind : m_keybinds) {
-            if (keybind.getKey() == key && (keybind.isInitialized() || keybind.isInternal())) {
+            auto bindKey = keybind.getKey();
+            bool matches = bindKey == key.props;
+
+            if (!matches && (bindKey.key == Keys::LeftShift || bindKey.key == Keys::RightShift ||
+                             bindKey.key == Keys::LeftControl || bindKey.key == Keys::RightControl ||
+                             bindKey.key == Keys::LeftAlt || bindKey.key == Keys::RightAlt ||
+                             bindKey.key == Keys::LeftSuper || bindKey.key == Keys::RightSuper)) {
+                if (bindKey.key == key.props.key) {
+                    auto expectedMods = bindKey.mods;
+                    auto pressedMods = key.props.mods;
+                    matches = (expectedMods & pressedMods) == expectedMods;
+                }
+            }
+
+            if (matches && (keybind.isInitialized() || keybind.isInternal())) {
                 if (ignoreInPlayLayer && !keybind.isInternal()) continue;
-                keybind.push();
+                keybind.execute(key);
             }
         }
     }
@@ -302,11 +334,16 @@ namespace eclipse::keybinds {
         return {};
     }
 
-    void Manager::registerKeyRelease(Keys key) {
-        m_keyStates[key] = false;
+    void Manager::registerKeyRelease(KeyEvent key) {
+        m_keyStates[key.props.key] = false;
+        for (auto& listener : m_globalListeners) {
+            if (listener(key)) {
+                return;
+            }
+        }
 
         auto menuToggle = getKeybind("menu.toggle");
-        if (menuToggle && key == menuToggle.value().get().getKey()) {
+        if (menuToggle && key.props == menuToggle.value().get().getKey()) {
             return; // on release, we don't want to toggle the menu
         }
 
@@ -315,16 +352,50 @@ namespace eclipse::keybinds {
         bool ignoreInPlayLayer = !utils::get<PlayLayer>() && config::get<bool>("keybind.in-game-only", false);
 
         for (auto& keybind : m_keybinds) {
-            if (keybind.getKey() == key && (keybind.isInitialized() || keybind.isInternal())) {
+            if (keybind.getKey() == key.props && (keybind.isInitialized() || keybind.isInternal())) {
                 if (ignoreInPlayLayer && !keybind.isInternal()) continue;
-                keybind.release();
+                keybind.execute(key);
             }
         }
+    }
+
+    std::string keyToString(KeybindProps key) {
+        StringBuffer<> buffer;
+
+        #ifdef GEODE_IS_WINDOWS
+        if (key.key != Keys::LeftControl && key.key != Keys::RightControl && static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) buffer.append("Ctrl+");
+        if (key.key != Keys::LeftAlt && key.key != Keys::RightAlt && static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt) buffer.append("Alt+");
+        if (key.key != Keys::LeftShift && key.key != Keys::RightShift && static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift) buffer.append("Shift+");
+        if (key.key != Keys::LeftAlt && key.key != Keys::RightAlt && static_cast<uint8_t>(key.mods) & KeyboardModifier::Super) buffer.append("Win+");
+        #elif defined(GEODE_IS_MACOS)
+        if (key.key != Keys::LeftControl && key.key != Keys::RightControl && static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) buffer.append("Control+");
+        if (key.key != Keys::LeftAlt && key.key != Keys::RightAlt && static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt) buffer.append("Option+");
+        if (key.key != Keys::LeftShift && key.key != Keys::RightShift && static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift) buffer.append("Shift+");
+        if (key.key != Keys::LeftSuper && key.key != Keys::RightSuper && static_cast<uint8_t>(key.mods) & KeyboardModifier::Super) buffer.append("Command+");
+        #else
+        if (key.key != Keys::LeftControl && key.key != Keys::RightControl && static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) buffer.append("Ctrl+");
+        if (key.key != Keys::LeftAlt && key.key != Keys::RightAlt && static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt) buffer.append("Alt+");
+        if (key.key != Keys::LeftShift && key.key != Keys::RightShift && static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift) buffer.append("Shift+");
+        if (key.key != Keys::LeftSuper && key.key != Keys::RightSuper && static_cast<uint8_t>(key.mods) & KeyboardModifier::Super) buffer.append("Super+");
+        #endif
+
+        buffer.append(keyToString(key.key));
+        return buffer.str();
     }
 
     bool isKeyDown(Keys key) {
         auto manager = Manager::get();
         return manager->m_keyStates[key];
+    }
+
+    bool isKeyDown(KeybindProps key) {
+        auto manager = Manager::get();
+        bool down = manager->m_keyStates[key.key];
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) down &= (manager->m_keyStates[Keys::LeftControl] || manager->m_keyStates[Keys::RightControl]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt)     down &= (manager->m_keyStates[Keys::LeftAlt] || manager->m_keyStates[Keys::RightAlt]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift)   down &= (manager->m_keyStates[Keys::LeftShift] || manager->m_keyStates[Keys::RightShift]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Super)   down &= (manager->m_keyStates[Keys::LeftSuper] || manager->m_keyStates[Keys::RightSuper]);
+        return down;
     }
 
     bool isKeyPressed(Keys key) {
@@ -336,6 +407,16 @@ namespace eclipse::keybinds {
         return false;
     }
 
+    bool isKeyPressed(KeybindProps key) {
+        auto manager = Manager::get();
+        bool pressed = manager->m_keyStates[key.key] && !manager->m_lastKeyStates[key.key];
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) pressed &= (manager->m_keyStates[Keys::LeftControl] || manager->m_keyStates[Keys::RightControl]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt)     pressed &= (manager->m_keyStates[Keys::LeftAlt] || manager->m_keyStates[Keys::RightAlt]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift)   pressed &= (manager->m_keyStates[Keys::LeftShift] || manager->m_keyStates[Keys::RightShift]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Super)   pressed &= (manager->m_keyStates[Keys::LeftSuper] || manager->m_keyStates[Keys::RightSuper]);
+        return pressed;
+    }
+
     bool isKeyReleased(Keys key) {
         auto manager = Manager::get();
 
@@ -345,17 +426,36 @@ namespace eclipse::keybinds {
         return false;
     }
 
+    bool isKeyReleased(KeybindProps key) {
+        auto manager = Manager::get();
+        bool released = !manager->m_keyStates[key.key] && manager->m_lastKeyStates[key.key];
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Control) released &= (manager->m_keyStates[Keys::LeftControl] || manager->m_keyStates[Keys::RightControl]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Alt)     released &= (manager->m_keyStates[Keys::LeftAlt] || manager->m_keyStates[Keys::RightAlt]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Shift)   released &= (manager->m_keyStates[Keys::LeftShift] || manager->m_keyStates[Keys::RightShift]);
+        if (static_cast<uint8_t>(key.mods) & KeyboardModifier::Super)   released &= (manager->m_keyStates[Keys::LeftSuper] || manager->m_keyStates[Keys::RightSuper]);
+        return released;
+    }
+
+    KeyboardModifier getCurrentModifiers() {
+        KeyboardModifier mods = KeyboardModifier::None;
+        if (isKeyDown(Keys::LeftControl) || isKeyDown(Keys::RightControl)) mods |= KeyboardModifier::Control;
+        if (isKeyDown(Keys::LeftAlt) || isKeyDown(Keys::RightAlt)) mods |= KeyboardModifier::Alt;
+        if (isKeyDown(Keys::LeftShift) || isKeyDown(Keys::RightShift)) mods |= KeyboardModifier::Shift;
+        if (isKeyDown(Keys::LeftSuper) || isKeyDown(Keys::RightSuper)) mods |= KeyboardModifier::Super;
+        return mods;
+    }
+
     void Manager::setupTab() {
         // for now, we only support keybinds tab on desktop
         #ifndef GEODE_IS_MOBILE
         auto tab = gui::MenuTab::find("tab.keybinds");
 
         m_menuKeybindUID = tab->addKeybind("keybinds.open-menu", "menu.toggleKey")->callback(
-            [](Keys key) {
+            [](KeybindProps key) {
                 if (key == Keys::MouseLeft) {
                     // Reset it back to the default keybind (LMB softlocks the menu)
                     key = Keys::Tab;
-                    config::set("menu.toggleKey", Keys::Tab);
+                    config::set<KeybindProps>("menu.toggleKey", Keys::Tab);
                 }
 
                 if (auto keybind = Manager::get()->getKeybind("menu.toggle"); keybind.has_value())

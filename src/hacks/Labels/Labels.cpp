@@ -45,7 +45,7 @@ namespace eclipse::hacks::Labels {
         }
 
         void cleanup() {
-            const auto now = getTimestamp();
+            auto const now = getTimestamp();
             auto removeOld = [now](ClickInfo& info) {
                 while (!info.first.empty() && now - info.first.front() > 1000) {
                     info.first.pop_front();
@@ -71,7 +71,7 @@ namespace eclipse::hacks::Labels {
             reset();
         }
 
-        void addClick(const PlayerButton btn) {
+        void addClick(PlayerButton const btn) {
             ClickInfo* clickInfo;
             switch (btn) {
                 case PlayerButton::Jump:
@@ -90,7 +90,7 @@ namespace eclipse::hacks::Labels {
             clickInfo->second++;
         }
 
-        int getCPS(const PlayerButton btn) const {
+        int getCPS(PlayerButton const btn) const {
             switch (btn) {
                 case PlayerButton::Jump: return jumpClicks.first.size();
                 case PlayerButton::Left: return leftClicks.first.size();
@@ -99,7 +99,7 @@ namespace eclipse::hacks::Labels {
             }
         }
 
-        int getMaxCPS(const PlayerButton btn) const {
+        int getMaxCPS(PlayerButton const btn) const {
             switch (btn) {
                 case PlayerButton::Jump: return jumpMaxCPS;
                 case PlayerButton::Left: return leftMaxCPS;
@@ -108,7 +108,7 @@ namespace eclipse::hacks::Labels {
             }
         }
 
-        void updateMaxCPS(const PlayerButton btn) {
+        void updateMaxCPS(PlayerButton const btn) {
             auto cps = getCPS(btn);
             switch (btn) {
                 case PlayerButton::Jump:
@@ -124,7 +124,7 @@ namespace eclipse::hacks::Labels {
             }
         }
 
-        int getClicks(const PlayerButton btn) const {
+        int getClicks(PlayerButton const btn) const {
             switch (btn) {
                 case PlayerButton::Jump: return jumpClicks.second;
                 case PlayerButton::Left: return leftClicks.second;
@@ -141,11 +141,11 @@ namespace eclipse::hacks::Labels {
         bool pushButton(PlayerButton btn) {
             bool result = PlayerObject::pushButton(btn);
 
-            const auto* gjbgl = utils::get<GJBaseGameLayer>();
+            auto const* gjbgl = utils::get<GJBaseGameLayer>();
             if (!gjbgl) return result;
 
-            const bool isP1 = this == gjbgl->m_player1;
-            const bool isP2 = this == gjbgl->m_player2;
+            bool const isP1 = this == gjbgl->m_player1;
+            bool const isP2 = this == gjbgl->m_player2;
 
             if (isP1)
                 s_clicksP1.addClick(btn);
@@ -186,7 +186,7 @@ namespace eclipse::hacks::Labels {
         struct Fields {
             cocos2d::CCNode* m_mainContainer;
             std::array<LabelsContainer*, 9> m_containers;
-            std::vector<std::pair<SmartLabel*, std::function<void(SmartLabel*)>>> m_absoluteLabels;
+            std::vector<SmartLabel*> m_absoluteLabels;
             bool m_isEditor = false;
         };
 
@@ -212,35 +212,7 @@ namespace eclipse::hacks::Labels {
                 cheatIndicator->setHeightMultiplier(0.37f);
                 cheatIndicator->setID("cheat-indicator"_spr);
                 auto* container = fields->m_containers[config::get<int>("labels.cheat-indicator.alignment", 0)];
-                container->addLabel(cheatIndicator, [](SmartLabel* label) {
-                    bool visible = config::get<bool>("labels.cheat-indicator.visible", false);
-
-                    if (!visible) {
-                        label->setVisible(false);
-                        return;
-                    }
-
-                    bool isCheating = config::getTemp("hasCheats", false);
-                    bool hasTripped = config::getTemp("trippedSafeMode", false);
-                    bool showOnlyCheating = config::get<bool>("labels.cheat-indicator.only-cheating", false);
-
-                    if (showOnlyCheating && !(isCheating || hasTripped)) {
-                        label->setVisible(false);
-                        return;
-                    }
-
-                    label->setVisible(true);
-                    label->setScale(config::get<float>("labels.cheat-indicator.scale", 0.5f));
-                    label->setOpacity(
-                        static_cast<GLubyte>(config::get<float>("labels.cheat-indicator.opacity", 0.35f) * 255)
-                    );
-
-                    // Cheating - Red, Tripped - Orange, Normal - Green
-                    auto color = isCheating ? gui::Color::RED : hasTripped
-                                            ? gui::Color{0.72f, 0.37f, 0.f}
-                                            : gui::Color::GREEN;
-                    label->setColor(color.toCCColor3B());
-                });
+                container->addLabel(cheatIndicator);
             }
 
             // Add the labels
@@ -257,6 +229,7 @@ namespace eclipse::hacks::Labels {
                     label->setOpacity(setting.color.getAlphaByte());
                     label->setVisible(setting.visible);
                     label->setAlignment(setting.fontAlignment);
+                    label->setSettings(&setting);
 
                     if (setting.absolutePosition) {
                         auto offset = setting.offset;
@@ -299,32 +272,10 @@ namespace eclipse::hacks::Labels {
                                 break;
                         }
 
-                        fields->m_absoluteLabels.emplace_back(label, [&setting](SmartLabel* label) {
-                            if (setting.hasEvents()) {
-                                auto [visible, scale, color, font] = setting.processEvents();
-                                label->setFont(font);
-                                label->setScale(scale);
-                                label->setColor(color.toCCColor3B());
-                                label->setOpacity(color.getAlphaByte());
-                                label->setVisible(visible);
-                            }
-
-                            label->update();
-                        });
-
+                        fields->m_absoluteLabels.push_back(label);
                         fields->m_mainContainer->addChild(label);
                     } else {
-                        auto* container = fields->m_containers[static_cast<int>(setting.alignment)];
-                        container->addLabel(label, [&setting](SmartLabel* label) {
-                            if (setting.hasEvents()) {
-                                auto [visible, scale, color, font] = setting.processEvents();
-                                label->setFont(font);
-                                label->setScale(scale);
-                                label->setColor(color.toCCColor3B());
-                                label->setOpacity(color.getAlphaByte());
-                                label->setVisible(visible);
-                            }
-                        });
+                        fields->m_containers[static_cast<int>(setting.alignment)]->addLabel(label);
                     }
                 }
             }
@@ -339,7 +290,7 @@ namespace eclipse::hacks::Labels {
             }
 
             updateLabels(0.f);
-            for (auto& container : m_fields->m_containers) {
+            for (auto* container : m_fields->m_containers) {
                 container->updateLayout(false);
             }
         }
@@ -357,9 +308,9 @@ namespace eclipse::hacks::Labels {
                 container->setVisible(actualVisibility);
                 container->update();
             }
-            for (auto& [label, update] : fields->m_absoluteLabels) {
+            for (auto label : fields->m_absoluteLabels) {
                 label->setVisible(actualVisibility);
-                if (actualVisibility) update(label);
+                if (actualVisibility) label->update();
             }
         }
 
@@ -403,7 +354,7 @@ namespace eclipse::hacks::Labels {
             }
         }
 
-        static const std::vector<labels::LabelSettings> DEFAULT_LABELS;
+        static std::vector<labels::LabelSettings> const DEFAULT_LABELS;
 
         void init() override {
             auto tab = gui::MenuTab::find("tab.labels");
@@ -426,7 +377,7 @@ namespace eclipse::hacks::Labels {
                ->callback([](bool) { updateLabels(); })
                ->setDescription()
                ->handleKeybinds()
-               ->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+               ->addOptions([](auto options) {
                    options->addToggle("labels.cheat-indicator.endscreen")
                           ->setDescription();
                    options->addToggle("labels.cheat-indicator.only-cheating")
@@ -451,44 +402,39 @@ namespace eclipse::hacks::Labels {
                       ->setDescription();
                });
             tab->addButton("labels.import")->callback([this] {
-                using FileEvent = geode::Task<geode::Result<std::filesystem::path>>;
-                static geode::EventListener<FileEvent> s_listener;
                 geode::utils::file::FilePickOptions::Filter filter;
                 filter.description = "Eclipse Label (*.ecl)";
                 filter.files.insert("*.ecl");
-                s_listener.bind([this](FileEvent::Event* event) {
-                    if (auto value = event->getValue()) {
-                        auto path = value->unwrapOr("");
+
+                geode::async::spawn(
+                    geode::utils::file::pick(
+                        geode::utils::file::PickMode::OpenFile,
+                        {geode::Mod::get()->getSaveDir(), {std::move(filter)}}
+                    ),
+                    [this](geode::utils::file::PickResult res) {
+                        if (!res) return;
+                        auto pathOpt = std::move(res).unwrapOr(std::nullopt);
+                        if (!pathOpt.has_value()) return;
+
+                        auto path = std::move(pathOpt).value();
                         std::error_code ec;
-                        if (path.empty() || !std::filesystem::exists(path, ec))
-                            return;
+                        if (!std::filesystem::exists(path, ec)) return;
 
-                        gui::Engine::queueAfterDrawing([this, path] {
-                            std::ifstream file(path);
-
-                            nlohmann::json json = nlohmann::json::parse(file, nullptr, false);
-                            file.close();
-
-                            if (json.is_discarded()) {
+                        gui::Engine::queueAfterDrawing([this, path = std::move(path)] {
+                            auto res = geode::utils::file::readFromJson<labels::LabelSettings>(path);
+                            if (!res) {
                                 return Popup::create(
                                     i18n::get_("labels.import-failed"),
                                     i18n::get_("labels.import-failed.msg")
                                 );
                             }
 
-                            s_labels.emplace_back(json.get<labels::LabelSettings>());
+                            s_labels.emplace_back(std::move(res).unwrap());
                             config::set("labels", s_labels);
                             updateLabels(true);
                             createLabelComponent();
                         });
                     }
-                });
-
-                s_listener.setFilter(
-                    geode::utils::file::pick(
-                        geode::utils::file::PickMode::OpenFile,
-                        {geode::Mod::get()->getSaveDir(), {filter}}
-                    )
                 );
             });
             tab->addButton("labels.add-new")->callback([this] {
@@ -511,7 +457,7 @@ namespace eclipse::hacks::Labels {
             });
             std::vector<std::string> presets;
             presets.reserve(DEFAULT_LABELS.size());
-            for (const auto& preset : DEFAULT_LABELS) {
+            for (auto const& preset : DEFAULT_LABELS) {
                 presets.push_back(preset.name);
             }
             tab->addCombo("labels.presets", presets, 0)
@@ -539,15 +485,15 @@ namespace eclipse::hacks::Labels {
             // player 1
             {
                 s_clicksP1.cleanup();
-                const auto jumpTotal = s_clicksP1.getClicks(PlayerButton::Jump);
-                const auto leftTotal = s_clicksP1.getClicks(PlayerButton::Left);
-                const auto rightTotal = s_clicksP1.getClicks(PlayerButton::Right);
-                const auto jumpCPS = s_clicksP1.getCPS(PlayerButton::Jump);
-                const auto leftCPS = s_clicksP1.getCPS(PlayerButton::Left);
-                const auto rightCPS = s_clicksP1.getCPS(PlayerButton::Right);
-                const auto maxJumpCPS = s_clicksP1.getMaxCPS(PlayerButton::Jump);
-                const auto maxLeftCPS = s_clicksP1.getMaxCPS(PlayerButton::Left);
-                const auto maxRightCPS = s_clicksP1.getMaxCPS(PlayerButton::Right);
+                auto const jumpTotal = s_clicksP1.getClicks(PlayerButton::Jump);
+                auto const leftTotal = s_clicksP1.getClicks(PlayerButton::Left);
+                auto const rightTotal = s_clicksP1.getClicks(PlayerButton::Right);
+                auto const jumpCPS = s_clicksP1.getCPS(PlayerButton::Jump);
+                auto const leftCPS = s_clicksP1.getCPS(PlayerButton::Left);
+                auto const rightCPS = s_clicksP1.getCPS(PlayerButton::Right);
+                auto const maxJumpCPS = s_clicksP1.getMaxCPS(PlayerButton::Jump);
+                auto const maxLeftCPS = s_clicksP1.getMaxCPS(PlayerButton::Left);
+                auto const maxRightCPS = s_clicksP1.getMaxCPS(PlayerButton::Right);
                 manager.setVariable("cps1", jumpCPS);
                 manager.setVariable("cps2", leftCPS);
                 manager.setVariable("cps3", rightCPS);
@@ -565,15 +511,15 @@ namespace eclipse::hacks::Labels {
             // player 2
             {
                 s_clicksP2.cleanup();
-                const auto jumpTotal = s_clicksP2.getClicks(PlayerButton::Jump);
-                const auto leftTotal = s_clicksP2.getClicks(PlayerButton::Left);
-                const auto rightTotal = s_clicksP2.getClicks(PlayerButton::Right);
-                const auto jumpCPS = s_clicksP2.getCPS(PlayerButton::Jump);
-                const auto leftCPS = s_clicksP2.getCPS(PlayerButton::Left);
-                const auto rightCPS = s_clicksP2.getCPS(PlayerButton::Right);
-                const auto maxJumpCPS = s_clicksP2.getMaxCPS(PlayerButton::Jump);
-                const auto maxLeftCPS = s_clicksP2.getMaxCPS(PlayerButton::Left);
-                const auto maxRightCPS = s_clicksP2.getMaxCPS(PlayerButton::Right);
+                auto const jumpTotal = s_clicksP2.getClicks(PlayerButton::Jump);
+                auto const leftTotal = s_clicksP2.getClicks(PlayerButton::Left);
+                auto const rightTotal = s_clicksP2.getClicks(PlayerButton::Right);
+                auto const jumpCPS = s_clicksP2.getCPS(PlayerButton::Jump);
+                auto const leftCPS = s_clicksP2.getCPS(PlayerButton::Left);
+                auto const rightCPS = s_clicksP2.getCPS(PlayerButton::Right);
+                auto const maxJumpCPS = s_clicksP2.getMaxCPS(PlayerButton::Jump);
+                auto const maxLeftCPS = s_clicksP2.getMaxCPS(PlayerButton::Left);
+                auto const maxRightCPS = s_clicksP2.getMaxCPS(PlayerButton::Right);
                 manager.setVariable("cps1P2", jumpCPS);
                 manager.setVariable("cps2P2", leftCPS);
                 manager.setVariable("cps3P2", rightCPS);
@@ -589,11 +535,11 @@ namespace eclipse::hacks::Labels {
             }
         }
 
-        [[nodiscard]] const char* getId() const override { return "Labels"; }
+        [[nodiscard]] char const* getId() const override { return "Labels"; }
 
         void createLabelComponent() {
             auto tab = gui::MenuTab::find("tab.labels");
-            for (const auto& toggle : m_labelToggles) {
+            for (auto toggle : m_labelToggles) {
                 tab->removeComponent(toggle);
             }
 
@@ -611,7 +557,7 @@ namespace eclipse::hacks::Labels {
                                   gui::Engine::queueAfterDrawing(
                                       [&] {
                                           auto it = std::ranges::find_if(
-                                              s_labels, [&setting](const labels::LabelSettings& s) {
+                                              s_labels, [&setting](labels::LabelSettings const& s) {
                                                   return s.id == setting.id;
                                               }
                                           );
@@ -636,7 +582,7 @@ namespace eclipse::hacks::Labels {
                       })
                       ->moveCallback([this, &setting](bool up) {
                           auto it = std::ranges::find_if(
-                              s_labels, [&setting](const labels::LabelSettings& s) {
+                              s_labels, [&setting](labels::LabelSettings const& s) {
                                   return s.id == setting.id;
                               }
                           );
@@ -668,10 +614,10 @@ namespace eclipse::hacks::Labels {
             refreshCocosUI();
         }
 
-        std::vector<std::shared_ptr<gui::LabelSettingsComponent>> m_labelToggles;
+        std::vector<gui::LabelSettingsComponent*> m_labelToggles;
     };
 
-    const std::vector<labels::LabelSettings> Labels::DEFAULT_LABELS = {
+    std::vector<labels::LabelSettings> const Labels::DEFAULT_LABELS = {
         {"FPS", "FPS: {round(fps)}", false},
         {"Testmode", "{isPracticeMode ? emojis.practice + 'Practice' : isTestMode ?? emojis.startPos + 'Testmode'}", false},
         {"Run From", "{!isPlatformer && (isPracticeMode || isTestMode) ?? 'From: ' + floor(runStart) + '%'}", false},

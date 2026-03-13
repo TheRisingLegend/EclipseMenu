@@ -22,7 +22,7 @@ namespace eclipse::hacks::Global {
 
         [[nodiscard]] bool isCheating() const override {
             auto toggle = config::get<"global.speedhack.toggle", bool>();
-            auto speed = config::get<"global.speedhack", float>(1.f);
+            auto speed = config::get<"global.speedhack", double>(1.f);
             return toggle && speed != 1.f;
         }
 
@@ -36,12 +36,29 @@ namespace eclipse::hacks::Global {
         ADD_HOOKS_DELEGATE("global.speedhack.toggle")
 
         void update(float dt) override {
-            auto speed = config::get<float>("global.speedhack", 1.f);
+            auto speed = config::get<double>("global.speedhack", 1.f);
 
             if (speed <= 0)
                 speed = 1.f;
 
             dt *= speed;
+
+            // i love inventing solutions for problems that should not even exist!
+        #ifdef GEODE_IS_WINDOWS
+            static bool hasCBFPhysicsBypass = []{
+                auto cbf = geode::Loader::get()->getLoadedMod("syzzi.click_between_frames");
+                if (!cbf) return false;
+
+                geode::listenForSettingChanges<bool>(
+                    "physics-bypass",
+                    [](bool value) { hasCBFPhysicsBypass = value; },
+                    cbf
+                );
+
+                return cbf->getSettingValue<bool>("physics-bypass");
+            }();
+            if (hasCBFPhysicsBypass) cocos2d::CCDirector::get()->m_fActualDeltaTime *= speed;
+        #endif
 
             CCScheduler::update(dt);
         }

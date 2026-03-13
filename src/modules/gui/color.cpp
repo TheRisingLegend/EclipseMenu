@@ -1,65 +1,22 @@
 #include "color.hpp"
 #include <imgui.h>
 #include <fmt/format.h>
-#include <nlohmann/json.hpp>
 
 namespace eclipse::gui {
-    const Color Color::WHITE = {1, 1, 1};
-    const Color Color::BLACK = {0, 0, 0};
-    const Color Color::RED = {1, 0, 0};
-    const Color Color::GREEN = {0, 1, 0};
-    const Color Color::BLUE = {0, 0, 1};
-    const Color Color::YELLOW = {1, 1, 0};
-    const Color Color::CYAN = {0, 1, 1};
-    const Color Color::MAGENTA = {1, 0, 1};
-
     Color::operator ImU32() const {
         return ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, a));
-    }
-
-    Color& Color::operator=(const Color& other) {
-        if (this == &other) return *this;
-        r = other.r;
-        g = other.g;
-        b = other.b;
-        a = other.a;
-        return *this;
-    }
-
-    Color& Color::operator=(Color&& other) noexcept {
-        if (this == &other) return *this;
-        r = other.r;
-        g = other.g;
-        b = other.b;
-        a = other.a;
-        other.r = other.g = other.b = 0;
-        other.a = 1.0f;
-        return *this;
     }
 
     Color::operator ImVec4() const {
         return {r, g, b, a};
     }
 
-    Color& Color::operator=(const ImVec4& col2) {
+    Color& Color::operator=(ImVec4 const& col2) {
         r = col2.x;
         g = col2.y;
         b = col2.z;
         a = col2.w;
         return *this;
-    }
-
-    Color::operator cocos2d::ccColor4F() const {
-        return {r, g, b, a};
-    }
-
-    Color::operator cocos2d::_ccColor4B() const {
-        return {
-            static_cast<uint8_t>(r * 255),
-            static_cast<uint8_t>(g * 255),
-            static_cast<uint8_t>(b * 255),
-            static_cast<uint8_t>(a * 255)
-        };
     }
 
     Color Color::fromHSV(float h, float s, float v, float a) {
@@ -97,7 +54,7 @@ namespace eclipse::gui {
         return {r + m, g + m, b + m, a};
     }
 
-    Color Color::fromHSV(const ImVec4& hsv) {
+    Color Color::fromHSV(ImVec4 const& hsv) {
         return fromHSV(hsv.x, hsv.y, hsv.z, hsv.w);
     }
 
@@ -130,26 +87,13 @@ namespace eclipse::gui {
         }
     }
 
-    Color Color::fromString(const std::string& color, Color::IntType type) {
-        uint32_t c = std::strtoul(color.c_str(), nullptr, 16);
-        return fromInt(c, type);
+    Color Color::fromString(std::string_view color, Color::IntType type) {
+        return fromInt(geode::utils::numFromString<uint32_t>(color, 16).unwrapOr(0), type);
     }
 
     std::string Color::toString(Color::IntType type) const {
         uint32_t c = toInt(type);
         return fmt::format("{:08X}", c);
-    }
-
-    Color Color::fromCCColor3B(cocos2d::ccColor3B const& color) {
-        return Color(color.r / 255.F, color.g / 255.F, color.b / 255.F);
-    }
-
-    cocos2d::ccColor3B Color::toCCColor3B() const {
-        return {
-            static_cast<uint8_t>(r * 255),
-            static_cast<uint8_t>(g * 255),
-            static_cast<uint8_t>(b * 255)
-        };
     }
 
     constexpr float hue2rgb(float p, float q, float t) {
@@ -161,7 +105,7 @@ namespace eclipse::gui {
         return p;
     }
 
-    Color::HSL Color::HSL::fromColor(const Color& color) {
+    Color::HSL Color::HSL::fromColor(Color const& color) {
         auto max = std::max({color.r, color.g, color.b});
         auto min = std::min({color.r, color.g, color.b});
         float h, s, l = (max + min) / 2;
@@ -186,7 +130,7 @@ namespace eclipse::gui {
         return {h, s, l};
     }
 
-    Color Color::HSL::toColor(const HSL& hsl) {
+    Color Color::HSL::toColor(HSL const& hsl) {
         float r, g, b;
 
         if (hsl.s == 0.f) {
@@ -206,7 +150,7 @@ namespace eclipse::gui {
         return HSL::fromColor(*this);
     }
 
-    Color Color::fromHSL(const HSL& hsl) const {
+    Color Color::fromHSL(HSL const& hsl) {
         return HSL::toColor(hsl);
     }
 
@@ -229,13 +173,13 @@ namespace eclipse::gui {
         rgb.a = a;
         return rgb;
     }
+}
 
-    void to_json(nlohmann::json& j, const Color& e) {
-        auto str = e.toString();
-        j = str;
-    }
+matjson::Value matjson::Serialize<eclipse::gui::Color>::toJson(eclipse::gui::Color const& color) {
+    return color.toString();
+}
 
-    void from_json(const nlohmann::json& j, Color& e) {
-        e = Color::fromString(j.get<std::string>());
-    }
+geode::Result<eclipse::gui::Color> matjson::Serialize<eclipse::gui::Color>::fromJson(Value const& value) {
+    GEODE_UNWRAP_INTO(auto str, value.as<std::string>());
+    return geode::Ok(eclipse::gui::Color::fromString(str));
 }

@@ -17,7 +17,7 @@ namespace eclipse::hacks::Player {
             config::setIfEmpty("player.autokill.time", 90.0f);
 
             tab->addToggle("player.autokill")->handleKeybinds()->setDescription()
-               ->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+               ->addOptions([](auto options) {
                    options->addFloatToggle("player.autokill.percentage", 0.f, 100.f, "%.2f%%")
                           ->handleKeybinds()->setDescription();
                    options->addFloatToggle("player.autokill.time", 0.f, FLT_MAX, "%.2f s.")
@@ -51,9 +51,9 @@ namespace eclipse::hacks::Player {
             if (!playLayer) return;
 
             auto percentageEnabled = config::get<bool>("player.autokill.percentage.toggle", true);
-            auto percentage = config::get<float>("player.autokill.percentage", 50.0f);
+            auto percentage = config::get<double>("player.autokill.percentage", 50.0f);
             auto timeEnabled = config::get<bool>("player.autokill.time.toggle", false);
-            auto time = config::get<float>("player.autokill.time", 90.0f);
+            auto time = config::get<double>("player.autokill.time", 90.0f);
 
             bool shouldKill = false;
             shouldKill |= percentageEnabled && playLayer->getCurrentPercent() >= percentage;

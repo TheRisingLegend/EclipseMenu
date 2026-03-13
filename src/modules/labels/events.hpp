@@ -93,13 +93,13 @@ namespace eclipse::labels {
     public:
         static EventManager& get();
 
-        void queueEvent(const LabelEvent& event, LabelSettings* label);
-        void dequeueEvent(const LabelEvent& event, const LabelSettings* label);
+        void queueEvent(LabelEvent const& event, LabelSettings* label);
+        void dequeueEvent(LabelEvent const& event, LabelSettings const* label);
 
         /// @brief Remove all events for a label. Call this when the label is deleted.
-        void removeEvents(const LabelSettings* label);
+        void removeEvents(LabelSettings const* label);
         /// @brief Remove a specific event.
-        void removeEvent(const LabelEvent* event);
+        void removeEvent(LabelEvent const* event);
 
         Event* getEvent(size_t labelId, size_t eventId);
         void processEvents();
@@ -108,3 +108,14 @@ namespace eclipse::labels {
         std::vector<Event> m_events;
     };
 }
+
+template <>
+struct matjson::Serialize<eclipse::labels::LabelEvent::Type> {
+    static Value toJson(eclipse::labels::LabelEvent::Type const& type) {
+        return static_cast<int>(type);
+    }
+    static geode::Result<eclipse::labels::LabelEvent::Type> fromJson(Value const& value) {
+        GEODE_UNWRAP_INTO(auto intValue, value.as<int>());
+        return geode::Ok(static_cast<eclipse::labels::LabelEvent::Type>(intValue));
+    }
+};

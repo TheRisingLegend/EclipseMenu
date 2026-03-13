@@ -1,6 +1,5 @@
 #include "manager.hpp"
 #include <filesystem>
-#include <nlohmann/json.hpp>
 #include <modules/config/config.hpp>
 #include <modules/gui/imgui/imgui.hpp>
 #include <Geode/Loader.hpp>
@@ -27,14 +26,15 @@ namespace eclipse::gui {
         return 0;
     }
 
-    void ThemeManager::init() {
+    ThemeManager::ThemeManager() {
         if (!loadTheme(geode::Mod::get()->getSaveDir() / "theme.json")) {
             // theme not created, load a built-in one
             auto themes = listAvailableThemes();
             if (themes.empty()) {
                 // okay, we're screwed, just set the defaults
                 applyValues(config::getTempStorage(), true);
-                return setDefaults();
+                setDefaults();
+                return;
             }
 
             // TODO: add a priority for default theme
@@ -70,13 +70,9 @@ namespace eclipse::gui {
         // TODO: fill this after all properties are figured out
     }
 
-    std::shared_ptr<ThemeManager> ThemeManager::get() {
-        static std::shared_ptr<ThemeManager> instance;
-        if (!instance) {
-            instance = std::make_shared<ThemeManager>();
-            instance->init();
-        }
-        return instance;
+    ThemeManager* ThemeManager::get() {
+        static ThemeManager instance;
+        return &instance;
     }
 
     void ThemeManager::reloadTheme() {
@@ -89,28 +85,27 @@ namespace eclipse::gui {
     }
 
     template <typename T>
-    std::optional<T> json_try_get(nlohmann::json const& j, std::string_view key) {
-        if (!j.is_object()) return std::nullopt;
-        if (!j.contains(key)) return std::nullopt;
-        return j.at(key).get<T>();
+    std::optional<T> json_try_get(matjson::Value const& j, std::string_view key) {
+        auto res = j[key].as<T>();
+        if (res.isErr()) return std::nullopt;
+        return res.unwrap();
     }
 
     template <typename T>
-    void try_assign(T& v, nlohmann::json const& j, std::string_view key) {
+    void try_assign(T& v, matjson::Value const& j, std::string_view key) {
         auto value = json_try_get<T>(j, key);
         if (value) v = *value;
         else geode::log::warn("Failed to read \"{}\" from theme", key);
     }
 
-    bool ThemeManager::loadTheme(const std::filesystem::path& path) {
-        std::error_code ec;
-        if (!std::filesystem::exists(path, ec)) return false;
-        std::ifstream file(path);
-        if (!file.is_open()) return false;
+    bool ThemeManager::loadTheme(std::filesystem::path const& path) {
+        auto res = geode::utils::file::readJson(path);
+        if (res.isErr()) {
+            geode::log::error("Failed to read theme file: {}", res.unwrapErr());
+            return false;
+        }
 
-        auto json = nlohmann::json::parse(file, nullptr, false);
-        if (json.is_discarded()) return false;
-
+        auto json = std::move(res).unwrap();
         setDefaults();
         auto details = json["details"];
 
@@ -189,11 +184,11 @@ namespace eclipse::gui {
         return true;
     }
 
-    void ThemeManager::saveTheme(const std::filesystem::path& path) const {
-        nlohmann::json json;
+    void ThemeManager::saveTheme(std::filesystem::path const& path) const {
+        matjson::Value json = matjson::Value::object();
         this->applyValues(json);
 
-        auto res = geode::utils::file::writeString(path, json.dump(4));
+        auto res = geode::utils::file::writeString(path, json.dump());
         if (res.isErr()) {
             geode::log::error("Failed to save theme file: {}", res.unwrapErr());
         }
@@ -203,18 +198,36 @@ namespace eclipse::gui {
         saveTheme(geode::Mod::get()->getSaveDir() / "theme.json");
     }
 
-    void ThemeManager::applyValues(nlohmann::json& json, bool flatten) const {
-        auto& details = flatten ? json : json["details"];
-        auto& blur = flatten ? json : json["blur"];
-        auto& other = flatten ? json : json["other"];
-        auto& colors = flatten ? json : json["colors"];
+    void ThemeManager::applyValues(matjson::Value& json, bool flatten) const {
+        // tech debt my beloved
+        matjson::Value *detailsPtr, *blurPtr, *otherPtr, *colorsPtr;
+        if (flatten) {
+            detailsPtr = &json;
+            blurPtr = &json;
+            otherPtr = &json;
+            colorsPtr = &json;
+        } else {
+            json.set("details", matjson::Value::object());
+            json.set("blur", matjson::Value::object());
+            json.set("other", matjson::Value::object());
+            json.set("colors", matjson::Value::object());
+            detailsPtr = &json["details"];
+            blurPtr = &json["blur"];
+            otherPtr = &json["other"];
+            colorsPtr = &json["colors"];
+        }
+
+        auto& details = *detailsPtr;
+        auto& blur = *blurPtr;
+        auto& other = *otherPtr;
+        auto& colors = *colorsPtr;
 
         details["name"] = m_themeName;
         details["description"] = m_themeDescription;
         details["author"] = m_themeAuthor;
-        details["renderer"] = m_renderer;
-        details["layout"] = m_layoutMode;
-        details["style"] = m_componentTheme;
+        details["renderer"] = static_cast<int>(m_renderer);
+        details["layout"] = static_cast<int>(m_layoutMode);
+        details["style"] = static_cast<int>(m_componentTheme);
         details["schema"] = m_schemaVersion;
 
         blur["blurEnabled"] = m_enableBlur;
@@ -262,36 +275,34 @@ namespace eclipse::gui {
         }
     }
 
-    bool ThemeManager::importTheme(const std::filesystem::path& path) {
+    bool ThemeManager::importTheme(std::filesystem::path const& path) {
         return false;
     }
 
-    void ThemeManager::exportTheme(const std::filesystem::path& path) {}
+    void ThemeManager::exportTheme(std::filesystem::path const& path) {}
 
     float ThemeManager::getGlobalScale() const {
         auto ret = m_uiScale * imgui::DEFAULT_SCALE;
         if (config::get<"interface.dpi-scaling", bool>()) {
-            ret *= config::getTemp<"ui.scale", float>(1.f);
+            ret *= config::getTemp<"ui.scale", double>(1.f);
         } else {
             GEODE_MACOS(ret /= geode::utils::getDisplayFactor();)
         }
         return ret;
     }
 
-    std::optional<ThemeMeta> ThemeManager::checkTheme(const std::filesystem::path& path) {
-        std::error_code ec;
-        if (!std::filesystem::exists(path, ec)) return std::nullopt;
-        std::ifstream file(path);
-        if (!file.is_open()) return std::nullopt;
+    std::optional<ThemeMeta> ThemeManager::checkTheme(std::filesystem::path const& path) {
+        auto res = geode::utils::file::readJson(path);
+        if (res.isErr()) {
+            return std::nullopt;
+        }
 
-        auto json = nlohmann::json::parse(file, nullptr, false);
-        if (json.is_discarded()) return std::nullopt;
-
+        auto json = res.unwrap();
         auto details = json["details"];
         auto name = json_try_get<std::string>(details, "name");
         if (!name) return std::nullopt;
 
-        return ThemeMeta{name.value(), path};
+        return ThemeMeta{std::move(name).value(), path};
     }
 
     std::vector<ThemeMeta> ThemeManager::listAvailableThemes() {
@@ -319,9 +330,9 @@ namespace eclipse::gui {
         return themes;
     }
 
-    void ThemeManager::applyAccentColor(const Color& color) {
+    void ThemeManager::applyAccentColor(Color const& color) {
         auto isDark = color.luminance() < 0.5f;
-        auto foreground = isDark ? Color::WHITE : Color::BLACK;
+        auto foreground = isDark ? Colors::WHITE : Colors::BLACK;
 
         m_disabledColor = isDark ? foreground.darken(0.4f) : foreground.lighten(0.4f);
         m_titleBackgroundColor = color;
@@ -337,9 +348,9 @@ namespace eclipse::gui {
         m_buttonActiveForeground = foreground;
     }
 
-    void ThemeManager::applyBackgroundColor(const Color& color) {
+    void ThemeManager::applyBackgroundColor(Color const& color) {
         auto isDark = color.luminance() < 0.5f;
-        auto foreground = isDark ? Color::WHITE : Color::BLACK;
+        auto foreground = isDark ? Colors::WHITE : Colors::BLACK;
 
         m_backgroundColor = color;
         m_frameBackground = isDark ? color.lighten(0.1f) : color.darken(0.1f);
@@ -350,9 +361,9 @@ namespace eclipse::gui {
     }
 
     void ThemeManager::setRenderer(RendererType renderer) {
-        auto engine = Engine::get();
-        if (engine->isInitialized()) {
-            engine->setRenderer(renderer);
+        auto& engine = Engine::get();
+        if (engine.isInitialized()) {
+            engine.setRenderer(renderer);
         }
         m_renderer = renderer;
     }
@@ -372,11 +383,11 @@ namespace eclipse::gui {
         m_componentTheme = theme;
     }
 
-    void ThemeManager::setSelectedFont(const std::string& value) {
+    void ThemeManager::setSelectedFont(std::string value) {
         if (auto imgui = imgui::ImGuiRenderer::get()) {
             imgui->getFontManager().setFont(value);
         }
-        m_selectedFont = value;
+        m_selectedFont = std::move(value);
     }
 
     void ThemeManager::setSelectedFont(int index) {

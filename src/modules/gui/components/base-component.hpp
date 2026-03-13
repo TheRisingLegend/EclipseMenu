@@ -39,14 +39,17 @@ namespace eclipse::gui {
 
         Component();
 
+        Component(Component&&) = default;
+        Component& operator=(Component&&) = default;
+
+        Component(Component const&) = delete;
+        Component& operator=(Component const&) = delete;
+
         /// @brief Get the component's unique identifier.
         [[nodiscard]] size_t getUID() const { return m_uid; }
 
         /// @brief Find a component by its unique identifier.
-        static std::shared_ptr<Component> find(size_t uid);
-
-        /// @brief Initialize the component.
-        virtual void onInit() = 0;
+        static Component* find(size_t uid);
 
         /// @brief Update the component.
         virtual void onUpdate() = 0;

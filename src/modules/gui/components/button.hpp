@@ -1,4 +1,5 @@
 #pragma once
+#include <functional.hpp>
 #include <functional>
 #include "base-component.hpp"
 
@@ -8,15 +9,14 @@ namespace eclipse::gui {
     public:
         explicit ButtonComponent(std::string title);
 
-        void onInit() override {}
         void onUpdate() override {}
 
         /// @brief Set a callback function to be called when the component value changes.
-        ButtonComponent* callback(const std::function<void()>& func);
+        ButtonComponent* callback(Function<void()>&& func);
 
-        [[nodiscard]] const std::string& getId() const override;
+        [[nodiscard]] std::string const& getId() const override;
 
-        [[nodiscard]] const std::string& getTitle() const override;
+        [[nodiscard]] std::string const& getTitle() const override;
 
         ButtonComponent* setDescription(std::string description) override;
 
@@ -27,11 +27,11 @@ namespace eclipse::gui {
 
         [[nodiscard]] bool hasKeybind() const;
 
-        void triggerCallback() const;
+        void triggerCallback();
 
     private:
         std::string m_title;
-        std::function<void()> m_callback;
+        Function<void()> m_callback;
         bool m_hasKeybind = false;
     };
 }

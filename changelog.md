@@ -1,5 +1,94 @@
 # Eclipse Menu
 
+## v1.8.3
+**Fixes**:
+* <cg>Fixed</c> <co>Replay Bot</c> accuracy after 2.208 changes
+* <cg>Fixed</c> <co>Practice Fix</c> not properly saving auto-checkpoints
+* <cg>Fixed</c> some <cl>Memory-based</c> <co>Practice Fix</c> crashes
+* <cg>Fixed</c> <co>Default Song Bypass</c> not saving the song choice
+* <cg>Fixed</c> label file picker crashes on Android
+* <cg>Fixed</c> <co>Wave Trail On Death</c> not working on <cl>macOS</c>
+
+## v1.8.2
+**Fixes**:
+* <cg>Fixed</c> <co>Solid Wave Trail</c> not working sometimes
+* <cg>Fixed</c> percentage calculation to match 2.208 changes
+
+## v1.8.1
+**Fixes**:
+* <cg>Fixed</c> an invisible crash on game close
+* <cg>Fixed</c> not being able to bind keys to any toggles
+* <cg>Fixed</c> <co>Click Teleport</c> not triggering on mouse click
+* <cg>Fixed</c> incompatibility with pre-2.208 replays
+* Temporarily made <co>Memory-based</c> Practice Fix not the default option
+* Auto disable <cl>Click Between Steps</c> when recording a replay
+
+## v1.8.0
+This update adds **<cg>Geometry Dash v2.2081</c>** support
+
+**Additions**:
+* Added <cg>Wave Trail On Death</c>
+* Added <cg>Persist Trail</c>
+* Added <cg>Composite Keybinds</c> (e.g. Ctrl + Key) for shortcuts
+* Added <cg>Click On Steps</c> and <cg>Click Between Steps</c> toggles
+* Added <cg>Show Spam Comments</c> (#314 by @Beat)
+* Added <cg>Search Auto Focus</c> toggle and disabled it by default
+* Added a warning popup on level enter when <co>Auto Safe Mode</c> or <co>Safe Mode</c> are active
+* Added <cg>Open Replays</c> button (#302 by @slideglide)
+* <co>FPS Bypass</c> and <co>Vertical Sync</c> now mutually disable each other
+* <co>Replay Bot</c> can now playback in editor
+* <co>Random Seed</c> is now supported on all platforms and has more options
+* <co>Stop Triggers on Death</c> can be toggled for platformer mode
+* <co>Hitbox Trail</c> now shows CBS ticks
+* Optimized <co>Hitbox Trail</c> memory usage
+* Increased max length of <co>Hitbox Trails</c>
+* Increased max TPS value
+
+** Fixes**:
+* <cg>Fixed</c> a <co>Replay Bot</c> input check that could cause recording issues
+* <cg>Fixed</c> replay picker showing `.DS_Store` files on macOS (#292 by @XblazeGMD)
+* <cg>Fixed</c> multiple issues with <co>Discord RPC</c> not showing status
+* <cg>Fixed</c> <co>Path Unlocker</c> also unlocking other items (#306 by @km7dev)
+* <cg>Fixed</c> <co>Auto Song Download</c> not downloading songs for daily/weekly levels
+* <cg>Fixed</c> <co>Auto Song Download</c> crash with the Newgrounds TOS popup (#317 by @RayDeeUx)
+* <co>Stop Triggers on Death</c> is now considered a cheat in platformer mode
+
+## v1.7.0
+**Additions**:
+* Added <cg>No Music Fade Out</c> (#273 by @Beat)
+* Added toggle for <cg>Horizontal Centering</c> in <co>Tabbed Layout</c>
+* <co>Layout Mode</c> can now change level colors
+
+**Fixes**:
+* <cg>Fixed</c> <co>Ball Rotation</c> triggering when switching to Cube and Robot
+* <cg>Fixed</c> <co>Level Edit</c> showing the "read-only" warning (cosmetic change)
+* <cg>Fixed</c> <co>Pause During Complete</c> registering level completion if you restart the level
+* <cg>Fixed</c> <co>Pause During Complete</c> not enabling the pause button on mobile
+* <cg>Fixed</c> <co>Layout Mode</c> breaking levels in Editor
+* <cg>Fixed</c> <co>Layout Mode</c> cheat indicator logic
+* <cg>Fixed</c> <co>No Trail</c>/<co>Always Show Trail</c> not updating while in-game
+* <cg>Fixed</c> `config::setInternal` method in <co>Eclipse API</c>
+
+## v1.6.0
+**Additions**:
+* Added responsive press animation for <co>Floating Button</c>
+* Added <cg>Wave Trail Pulse</c> toggle to <co>Custom Wave Trail</c>
+* Added <cg>Vertical Sync</c> toggle (#268 by @slideglide)
+* Added <cg>Memory-based</c> option for <co>Practice Fix</c>
+* Added new label variables: `playerXVelocity`, `playerYVelocity`, `player2XVelocity`, `player2YVelocity`
+* Tabbed layout is now horizontally centered 
+
+**Fixes**:
+* <cg>Fixed</c> <co>Floating Button</c> ignoring <cl>Show in Editor</c> setting
+* <cg>Fixed</c> <co>Floating Button</c> going offscreen when changing resolution
+* <cg>Fixed</c> a race condition with <co>StartPos Switcher</c> causing crashes while level is loading
+* <cg>Fixed</c> <co>Show Hitboxes</c> classifying speed portals as triggers
+* <cg>Fixed</c> <co>Speedhack</c> compatibility with <co>CBF Physics Bypass</c>
+* <cg>Improved</c> <co>Show Hitboxes</c> behavior parity with vanilla hitboxes in editor
+* <co>Replay Bot</c> accuracy improvements
+* Various <co>Shipcopter</c> improvements and fixes
+* Massive refactoring of codebase that improves performance and load times
+
 ## v1.5.0
 **Additions**:
 * Added <cg>Freeze Best Run</c> for <co>Safe Mode</c>

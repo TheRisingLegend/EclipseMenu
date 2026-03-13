@@ -28,16 +28,17 @@
 #endif
 
 namespace eclipse::utils {
-    std::random_device& getRng() {
-        static std::random_device rng;
+#if 0
+    std::mt19937_64& getRng() {
+        static std::mt19937_64 rng{std::random_device{}()};
         return rng;
     }
+#endif
 
     std::string getClock(bool useTwelveHours) {
-        auto now = std::chrono::system_clock::now();
-        auto time = std::chrono::system_clock::to_time_t(now);
-        auto tm = fmt::localtime(time);
-        return useTwelveHours ? fmt::format("{:%I:%M:%S %p}", tm) : fmt::format("{:%H:%M:%S}", tm);
+        auto lt = geode::localtime(std::time(nullptr));
+        return useTwelveHours ? fmt::format("{:%I:%M:%S %p}", lt)
+                              : fmt::format("{:%H:%M:%S}", lt);
     }
 
     bool hasOpenGLExtension(std::string_view extension) {
@@ -74,14 +75,14 @@ namespace eclipse::utils {
         return fmt::format("{}", seconds);
     }
 
-    float getActualProgress(GJBaseGameLayer* game) {
-        float percent;
+    double getActualProgress(GJBaseGameLayer* game) {
+        double percent;
         if (game->m_level->m_timestamp > 0) {
-            percent = static_cast<float>(game->m_gameState.m_levelTime * 240.f) / game->m_level->m_timestamp * 100.f;
+            percent = game->m_gameState.m_levelTime * 240.0 / game->m_level->m_timestamp * 100.0;
         } else {
-            percent = game->m_player1->getPositionX() / game->m_levelLength * 100.f;
+            percent = game->m_player1->getPositionX() * 100.0 / game->m_levelLength;
         }
-        return std::clamp(percent, 0.f, 100.f);
+        return std::clamp(percent, 0.0, 100.0);
     }
 
     void updateCursorState(bool visible) {
@@ -89,7 +90,7 @@ namespace eclipse::utils {
         if (auto* playLayer = utils::get<PlayLayer>()) {
             canShowInLevel = playLayer->m_hasCompletedLevel ||
                              playLayer->m_isPaused ||
-                             utils::get<GameManager>()->getGameVariable("0024");
+                             utils::get<GameManager>()->getGameVariable(GameVar::ShowCursor);
         }
         if (visible || canShowInLevel)
             PlatformToolbox::showCursor();
@@ -97,11 +98,11 @@ namespace eclipse::utils {
             PlatformToolbox::hideCursor();
     }
 
-    const char* getMonthName(int month) {
-        constexpr std::array months = {
+    std::string_view getMonthName(int month) {
+        constexpr std::array months = std::to_array<std::string_view>({
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
-        };
+        });
         return months.at(month);
     }
 
@@ -153,7 +154,7 @@ namespace eclipse::utils {
         return PlayerMode::Cube;
     }
 
-    const char* gameModeName(PlayerMode mode) {
+    std::string_view gameModeName(PlayerMode mode) {
         switch (mode) {
             case PlayerMode::Cube: return "Cube";
             case PlayerMode::Ship: return "Ship";
@@ -182,9 +183,9 @@ namespace eclipse::utils {
         return 1;
     }
 
-    float getTPS() {
+    double getTPS() {
         return config::get<"global.tpsbypass.toggle", bool>(false)
-            ? config::get<"global.tpsbypass", float>(240.f) : 240.f;
+            ? config::get<"global.tpsbypass", double>(240.f) : 240.f;
     }
 
     cocos2d::CCMenu* getEclipseUILayer() {

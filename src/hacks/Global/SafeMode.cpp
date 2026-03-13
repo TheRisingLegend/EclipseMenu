@@ -2,15 +2,22 @@
 #include <modules/config/config.hpp>
 #include <modules/gui/color.hpp>
 #include <modules/gui/gui.hpp>
+#include <modules/gui/cocos/nodes/CCMenuItemExt.hpp>
 #include <modules/gui/components/toggle.hpp>
 #include <modules/hack/hack.hpp>
 
 #include <Geode/binding/GameStatsManager.hpp>
 
+#include <Geode/modify/EditLevelLayer.hpp>
 #include <Geode/modify/EndLevelLayer.hpp>
+#include <Geode/modify/LevelInfoLayer.hpp>
+#include <Geode/modify/LevelPage.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/RetryLevelLayer.hpp>
+
+#include <modules.hpp>
+#include <ranges>
 
 namespace eclipse::hacks::Global {
     enum class SafeModeState {
@@ -21,17 +28,18 @@ namespace eclipse::hacks::Global {
 
     // Contains the state of activated hacks in an attempt
     std::map<std::string_view, bool> s_attemptCheats;
+    std::map<std::string_view, bool> const& getAttemptCheats() { return s_attemptCheats; }
 
     // Whether the last attempt had tripped any cheats
     bool s_trippedLastAttempt = false;
 
     class $hack(AutoSafeMode) {
         static bool hasCheats() {
-            for (auto& [_, callback] : api::getCheats()) {
+            for (auto& callback : api::getCheats() | std::views::values) {
                 if (callback()) return true;
             }
 
-            const auto& hacks = hack::getCheatingHacks();
+            auto const& hacks = hack::getCheatingHacks();
             return std::ranges::any_of(hacks, [](auto& hack) {
                 return hack->isCheating();
             });
@@ -45,14 +53,14 @@ namespace eclipse::hacks::Global {
         }
 
         static void updateCheatStates() {
-            for (const auto& hack : hack::getCheatingHacks()) {
+            for (auto const& hack : hack::getCheatingHacks()) {
                 if (hack->isCheating()) {
                     s_attemptCheats[hack->getId()] = true;
                 } else if (s_attemptCheats.contains(hack->getId())) {
                     s_attemptCheats[hack->getId()] = false;
                 }
             }
-            for (const auto& [id, active] : api::getCheats()) {
+            for (auto& [id, active] : api::getCheats()) {
                 if (active()) {
                     s_attemptCheats[id] = true;
                 } else if (s_attemptCheats.contains(id)) {
@@ -64,8 +72,8 @@ namespace eclipse::hacks::Global {
         static std::string constructMessage() {
             std::string message = "";
             message.reserve(s_attemptCheats.size() * 20);
-            for (const auto& [id, active] : s_attemptCheats) {
-                message += fmt::format("- {}{}</c>\n", active ? "<cr>" : "<co>", id);
+            for (auto const& [id, active] : s_attemptCheats) {
+                fmt::format_to(std::back_inserter(message), "- {}{}</c>\n", active ? "<cr>" : "<co>", id);
             }
 
             // Remove the last newline
@@ -75,7 +83,7 @@ namespace eclipse::hacks::Global {
             return message;
         }
 
-        static void showPopup(const std::string& message) {
+        static void showPopup(std::string const& message) {
             if (!s_trippedLastAttempt && !hasCheats())
                 return;
 
@@ -90,7 +98,11 @@ namespace eclipse::hacks::Global {
             auto tab = gui::MenuTab::find("tab.global");
 
             config::setIfEmpty("global.autosafemode", true);
-            tab->addToggle("global.autosafemode")->handleKeybinds()->setDescription();
+            config::setIfEmpty("global.autosafemode.warn-popup", true);
+
+            tab->addToggle("global.autosafemode")->handleKeybinds()->setDescription()->addOptions([](auto options) {
+                options->addToggle("global.autosafemode.warn-popup")->setDescription();
+            });
         }
 
         void update() override {
@@ -112,9 +124,11 @@ namespace eclipse::hacks::Global {
             config::setIfEmpty("global.safemode.freeze_attempts", true);
             config::setIfEmpty("global.safemode.freeze_jumps", true);
             config::setIfEmpty("global.safemode.freeze_best_run", false);
+            config::setIfEmpty("global.safemode.warn-popup", true);
 
             tab->addToggle("global.safemode")->handleKeybinds()->setDescription()
-               ->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+               ->addOptions([](auto options) {
+                   options->addToggle("global.safemode.warn-popup")->setDescription();
                    options->addToggle("global.safemode.freeze_attempts");
                    options->addToggle("global.safemode.freeze_jumps");
                    options->addToggle("global.safemode.freeze_best_run");
@@ -166,7 +180,7 @@ namespace eclipse::hacks::Global {
             this->m_isTestMode = original;
         }
 
-        void resetLevel() {
+        void resetLevel() override {
             bool safeMode = config::get<bool>("global.safemode", false);
 
             if ((safeMode || AutoSafeMode::shouldEnable()) && config::get<bool>("global.safemode.freeze_attempts", true))
@@ -203,8 +217,8 @@ namespace eclipse::hacks::Global {
         }
     };
 
-    #define NormalColor gui::Color::GREEN
-    #define CheatingColor gui::Color::RED
+    #define NormalColor gui::Colors::GREEN
+    #define CheatingColor gui::Colors::RED
     #define TrippedColor gui::Color { 0.72f, 0.37f, 0.f }
 
     static CCMenuItemSpriteExtra* createCI() {
@@ -212,7 +226,7 @@ namespace eclipse::hacks::Global {
         auto color = AutoSafeMode::hasCheats() ? CheatingColor : s_trippedLastAttempt ? TrippedColor : NormalColor;
         ci->setColor(color.toCCColor3B());
         auto msg = AutoSafeMode::constructMessage();
-        auto btn = geode::cocos::CCMenuItemExt::createSpriteExtra(ci, [msg](auto) {
+        auto btn = gui::cocos::createSpriteExtra(ci, [msg = std::move(msg)](auto) {
             AutoSafeMode::showPopup(msg);
         });
         btn->setAnchorPoint({0.45f, 0.2f});
@@ -260,4 +274,120 @@ namespace eclipse::hacks::Global {
             if (menu) menu->addChild(btn);
         }
     };
+
+    /// ==========
+    /// "Cheats Enabled" warning popup
+    /// ==========
+
+    static bool manualSafeModePopup() {
+        if (!config::get<"global.safemode", bool>(false)) {
+            return false;
+        }
+
+        if (!config::get<"global.safemode.warn-popup", bool>(true)) {
+            return false;
+        }
+
+        s_attemptCheats.clear();
+        AutoSafeMode::updateCheatStates();
+
+        // edge case: noclip is only considered a cheat if you die while using it
+        if (config::get<"player.noclip", bool>()) {
+            s_attemptCheats["Noclip"] = false;
+        }
+
+        if (config::get<"level.showhitboxes", bool>()) {
+            s_attemptCheats["Show Hitboxes"] = true;
+        }
+
+        if (s_attemptCheats.empty() ) {
+            FLAlertLayer::create(
+                nullptr,
+                "Safe Mode (Eclipse)",
+                "<cr>Progress saving is disabled.</c>\n\n"
+                "<cy>Safe Mode is enabled. Progress will NOT be saved for any attempts until you disable Safe Mode.</c>",
+                "OK", nullptr, 400, true, 0, 1
+            )->show();
+        } else {
+            FLAlertLayer::create(
+                nullptr,
+                "Safe Mode (Eclipse)",
+                fmt::format(
+                    "<cr>Progress saving is disabled.</c>\n\n"
+                    "<cy>Safe Mode is enabled. Progress will NOT be saved for any attempts until you disable Safe Mode.</c>"
+                    "\n\n<cy>Active cheats ({}):</c>\n{}",
+                    s_attemptCheats.size(),
+                    AutoSafeMode::constructMessage()
+                ), "OK",
+                nullptr, 400, true, 0, 1
+            )->show();
+        }
+
+        return true;
+    }
+
+    static bool showCheatWarn() {
+        if (manualSafeModePopup()) {
+            return true;
+        }
+
+        if (!config::get<"global.autosafemode.warn-popup", bool>(true)) {
+            return false;
+        }
+
+        if (!config::get<"global.autosafemode", bool>(true)) {
+            return false;
+        }
+
+        s_attemptCheats.clear();
+        AutoSafeMode::updateCheatStates();
+
+        // edge case: noclip is only considered a cheat if you die while using it
+        if (config::get<"player.noclip", bool>()) {
+            s_attemptCheats["Noclip"] = false;
+        }
+
+        if (config::get<"level.showhitboxes", bool>()) {
+            s_attemptCheats["Show Hitboxes"] = true;
+        }
+
+        if (s_attemptCheats.empty() ) {
+            return false;
+        }
+
+        FLAlertLayer::create(
+            nullptr,
+            "Auto-Safe Mode (Eclipse)",
+            fmt::format(
+                "<cr>Progress saving is disabled.</c>\n\n"
+                "<cy>Auto-Safe Mode is active because cheats are enabled.</c>\n"
+                "While this is active, progress will <cr>NOT</c> be saved.\n\n"
+                "<cy>Active cheats ({}):</c>\n{}",
+                s_attemptCheats.size(),
+                AutoSafeMode::constructMessage()
+            ), "OK",
+            nullptr, 400, true, 0, 1
+        )->show();
+
+        return true;
+    }
+
+#define DEFINE_WARN_HOOK(name, cls)                \
+    class $modify(name, cls) {                     \
+        ENABLE_FIRST_HOOKS_ALL()                   \
+        struct Fields {                            \
+            bool m_shownCheatWarn = false;         \
+        };                                         \
+        void onPlay(CCObject* sender) {            \
+            if (!m_fields->m_shownCheatWarn) {     \
+                m_fields->m_shownCheatWarn = true; \
+                if (showCheatWarn()) return;       \
+            }                                      \
+            cls::onPlay(sender);                   \
+        }                                          \
+    }
+
+    DEFINE_WARN_HOOK(CheatsEnabledWarnLPHook, LevelPage);
+    DEFINE_WARN_HOOK(CheatsEnabledWarnELLHook, EditLevelLayer);
+    DEFINE_WARN_HOOK(CheatsEnabledWarnLILHook, LevelInfoLayer);
 }

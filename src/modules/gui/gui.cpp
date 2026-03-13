@@ -29,203 +29,187 @@ namespace eclipse::gui {
     MenuTab::MenuTab(std::string title, bool isSearchedFor)
         : m_title(std::move(title)), m_isSearchedFor(isSearchedFor) {}
 
-    void MenuTab::addComponent(const std::shared_ptr<Component>& component) {
-        m_components.push_back(component);
-        component->onInit();
+    Component* MenuTab::addComponent(ComponentPtr component) {
+        return m_components.emplace_back(std::move(component)).get();
     }
 
-    void MenuTab::removeComponent(std::weak_ptr<Component> component) {
-        auto it = std::ranges::find_if(
-            m_components, [&component](const std::shared_ptr<Component>& c) {
-                return component.lock() == c;
-            }
-        );
-
-        m_components[it - m_components.begin()].reset();
-        m_components.erase(it);
+    void MenuTab::removeComponent(Component* component) {
+        std::erase_if(m_components, [component](auto& ptr) {
+            return ptr.get() == component;
+        });
     }
 
-    std::shared_ptr<LabelComponent> MenuTab::addLabel(const std::string& title) {
-        auto label = std::make_shared<LabelComponent>(title);
-        addComponent(label);
-        return label;
+    LabelComponent* MenuTab::addLabel(std::string title) {
+        return static_cast<LabelComponent*>(this->addComponent(
+            std::make_unique<LabelComponent>(std::move(title))
+        ));
     }
 
-    std::shared_ptr<ToggleComponent> MenuTab::addToggle(const std::string& id) {
-        auto toggle = std::make_shared<ToggleComponent>(id, id);
-        addComponent(toggle);
-        return toggle;
+    ToggleComponent* MenuTab::addToggle(std::string id) {
+        std::string name = id;
+        return this->addToggle(std::move(name), std::move(id));
     }
 
-    std::shared_ptr<ToggleComponent> MenuTab::addToggle(const std::string& title, const std::string& id) {
-        auto toggle = std::make_shared<ToggleComponent>(id, title);
-        addComponent(toggle);
-        return toggle;
+    ToggleComponent* MenuTab::addToggle(std::string title, std::string id) {
+        return static_cast<ToggleComponent*>(this->addComponent(
+            std::make_unique<ToggleComponent>(std::move(id), std::move(title))
+        ));
     }
 
-    std::shared_ptr<RadioButtonComponent> MenuTab::addRadioButton(
-        const std::string& title, const std::string& id, int value
+    RadioButtonComponent* MenuTab::addRadioButton(
+        std::string title, std::string id, int value
     ) {
-        auto button = std::make_shared<RadioButtonComponent>(id, title, value);
-        addComponent(button);
-        return button;
+        return static_cast<RadioButtonComponent*>(this->addComponent(
+            std::make_unique<RadioButtonComponent>(std::move(id), std::move(title), value)
+        ));
     }
 
-    std::shared_ptr<ComboComponent> MenuTab::addCombo(
-        const std::string& title, const std::string& id, std::vector<std::string> items, int value
+    ComboComponent* MenuTab::addCombo(
+        std::string title, std::string id, std::vector<std::string> items, int value
     ) {
-        auto combo = std::make_shared<ComboComponent>(id, title, items, value);
-        addComponent(combo);
-        return combo;
+        return static_cast<ComboComponent*>(this->addComponent(
+            std::make_unique<ComboComponent>(std::move(id), std::move(title), std::move(items), value)
+        ));
     }
 
-    std::shared_ptr<ComboComponent> MenuTab::addCombo(
-        const std::string& id, std::vector<std::string> items, int value
+    ComboComponent* MenuTab::addCombo(
+        std::string id, std::vector<std::string> items, int value
     ) {
-        auto combo = std::make_shared<ComboComponent>(id, id, items, value);
-        addComponent(combo);
-        return combo;
+        std::string title = id;
+        return this->addCombo(std::move(title), std::move(id), std::move(items), value);
     }
 
-    std::shared_ptr<FilesystemComboComponent> MenuTab::addFilesystemCombo(
-        const std::string& title, const std::string& id, std::filesystem::path directory
+    FilesystemComboComponent* MenuTab::addFilesystemCombo(
+        std::string title, std::string id, std::filesystem::path directory
     ) {
-        auto combo = std::make_shared<FilesystemComboComponent>(id, title, directory);
-        addComponent(combo);
-        return combo;
+        return static_cast<FilesystemComboComponent*>(this->addComponent(
+            std::make_unique<FilesystemComboComponent>(std::move(id), std::move(title), std::move(directory))
+        ));
     }
 
-    std::shared_ptr<FilesystemComboComponent> MenuTab::addFilesystemCombo(
-        const std::string& id, std::filesystem::path directory
+    FilesystemComboComponent* MenuTab::addFilesystemCombo(
+        std::string id, std::filesystem::path directory
     ) {
-        auto combo = std::make_shared<FilesystemComboComponent>(id, id, directory);
-        addComponent(combo);
-        return combo;
+        std::string title = id;
+        return this->addFilesystemCombo(std::move(title), std::move(id), std::move(directory));
     }
 
-    std::shared_ptr<SliderComponent> MenuTab::addSlider(
-        const std::string& title, const std::string& id, float min, float max, const std::string& format
+    SliderComponent* MenuTab::addSlider(
+        std::string title, std::string id, float min, float max, std::string format
     ) {
-        auto slider = std::make_shared<SliderComponent>(title, id, min, max, format);
-        addComponent(slider);
-        return slider;
+        return static_cast<SliderComponent*>(this->addComponent(
+            std::make_unique<SliderComponent>(std::move(title), std::move(id), min, max, std::move(format))
+        ));
     }
 
-    std::shared_ptr<SliderComponent> MenuTab::addSlider(
-        const std::string& id, float min, float max, const std::string& format
+    SliderComponent* MenuTab::addSlider(
+        std::string id, float min, float max, std::string format
     ) {
-        auto slider = std::make_shared<SliderComponent>(id, id, min, max, format);
-        addComponent(slider);
-        return slider;
+        std::string title = id;
+        return this->addSlider(std::move(title), std::move(id), min, max, std::move(format));
     }
 
-    std::shared_ptr<InputFloatComponent> MenuTab::addInputFloat(
-        const std::string& title, const std::string& id, float min, float max, const std::string& format
+    InputFloatComponent* MenuTab::addInputFloat(
+        std::string title, std::string id, float min, float max, std::string format
     ) {
-        auto inputFloat = std::make_shared<InputFloatComponent>(title, id, min, max, format);
-        addComponent(inputFloat);
-        return inputFloat;
+        return static_cast<InputFloatComponent*>(this->addComponent(
+            std::make_unique<InputFloatComponent>(std::move(title), std::move(id), min, max, std::move(format))
+        ));
     }
 
-    std::shared_ptr<InputFloatComponent> MenuTab::addInputFloat(
-        const std::string& id, float min, float max, const std::string& format
+    InputFloatComponent* MenuTab::addInputFloat(
+        std::string id, float min, float max, std::string format
     ) {
-        auto inputFloat = std::make_shared<InputFloatComponent>(id, id, min, max, format);
-        addComponent(inputFloat);
-        return inputFloat;
+        std::string title = id;
+        return this->addInputFloat(std::move(title), std::move(id), min, max, std::move(format));
     }
 
-    std::shared_ptr<InputIntComponent> MenuTab::addInputInt(
-        const std::string& title, const std::string& id, int min, int max
+    InputIntComponent* MenuTab::addInputInt(
+        std::string title, std::string id, int min, int max
     ) {
-        auto inputInt = std::make_shared<InputIntComponent>(title, id, min, max);
-        addComponent(inputInt);
-        return inputInt;
+        return static_cast<InputIntComponent*>(this->addComponent(
+            std::make_unique<InputIntComponent>(std::move(title), std::move(id), min, max)
+        ));
     }
 
-    std::shared_ptr<InputIntComponent> MenuTab::addInputInt(const std::string& id, int min, int max) {
-        auto inputInt = std::make_shared<InputIntComponent>(id, id, min, max);
-        addComponent(inputInt);
-        return inputInt;
+    InputIntComponent* MenuTab::addInputInt(std::string id, int min, int max) {
+        std::string title = id;
+        return this->addInputInt(std::move(title), std::move(id), min, max);
     }
 
-    std::shared_ptr<IntToggleComponent> MenuTab::addIntToggle(
-        const std::string& title, const std::string& id, int min, int max
+    IntToggleComponent* MenuTab::addIntToggle(
+        std::string title, std::string id, int min, int max
     ) {
-        auto intToggle = std::make_shared<IntToggleComponent>(title, id, min, max);
-        addComponent(intToggle);
-        return intToggle;
+        return static_cast<IntToggleComponent*>(this->addComponent(
+            std::make_unique<IntToggleComponent>(std::move(title), std::move(id), min, max)
+        ));
     }
 
-    std::shared_ptr<IntToggleComponent> MenuTab::addIntToggle(const std::string& id, int min, int max) {
-        auto intToggle = std::make_shared<IntToggleComponent>(id, id, min, max);
-        addComponent(intToggle);
-        return intToggle;
+    IntToggleComponent* MenuTab::addIntToggle(std::string id, int min, int max) {
+        std::string title = id;
+        return this->addIntToggle(std::move(title), std::move(id), min, max);
     }
 
-    std::shared_ptr<FloatToggleComponent> MenuTab::addFloatToggle(
-        const std::string& title, const std::string& id, float min, float max, const std::string& format
+    FloatToggleComponent* MenuTab::addFloatToggle(
+        std::string title, std::string id, float min, float max, std::string format
     ) {
-        auto floatToggle = std::make_shared<FloatToggleComponent>(title, id, min, max, format);
-        addComponent(floatToggle);
-        return floatToggle;
+        return static_cast<FloatToggleComponent*>(this->addComponent(
+            std::make_unique<FloatToggleComponent>(std::move(title), std::move(id), min, max, std::move(format))
+        ));
     }
 
-    std::shared_ptr<FloatToggleComponent> MenuTab::addFloatToggle(
-        const std::string& id, float min, float max, const std::string& format
+    FloatToggleComponent* MenuTab::addFloatToggle(
+        std::string id, float min, float max, std::string format
     ) {
-        auto floatToggle = std::make_shared<FloatToggleComponent>(id, id, min, max, format);
-        addComponent(floatToggle);
-        return floatToggle;
+        std::string title = id;
+        return this->addFloatToggle(std::move(title), std::move(id), min, max, std::move(format));
     }
 
-    std::shared_ptr<InputTextComponent> MenuTab::addInputText(const std::string& title, const std::string& id) {
-        auto inputText = std::make_shared<InputTextComponent>(title, id);
-        addComponent(inputText);
-        return inputText;
+    InputTextComponent* MenuTab::addInputText(std::string title, std::string id) {
+        return static_cast<InputTextComponent*>(this->addComponent(
+            std::make_unique<InputTextComponent>(std::move(title), std::move(id))
+        ));
     }
 
-    std::shared_ptr<InputTextComponent> MenuTab::addInputText(const std::string& id) {
-        auto inputText = std::make_shared<InputTextComponent>(id, id);
-        addComponent(inputText);
-        return inputText;
+    InputTextComponent* MenuTab::addInputText(std::string id) {
+        std::string title = id;
+        return this->addInputText(std::move(title), std::move(id));
     }
 
-    std::shared_ptr<ButtonComponent> MenuTab::addButton(const std::string& title) {
-        auto button = std::make_shared<ButtonComponent>(title);
-        addComponent(button);
-        return button;
+    ButtonComponent* MenuTab::addButton(std::string title) {
+        return static_cast<ButtonComponent*>(this->addComponent(
+            std::make_unique<ButtonComponent>(std::move(title))
+        ));
     }
 
-    std::shared_ptr<ColorComponent> MenuTab::addColorComponent(
-        const std::string& title, const std::string& id, bool hasOpacity
+    ColorComponent* MenuTab::addColorComponent(
+        std::string title, std::string id, bool hasOpacity
     ) {
-        auto color = std::make_shared<ColorComponent>(title, id, hasOpacity);
-        addComponent(color);
-        return color;
+        return static_cast<ColorComponent*>(this->addComponent(
+            std::make_unique<ColorComponent>(std::move(title), std::move(id), hasOpacity)
+        ));
     }
 
-    std::shared_ptr<ColorComponent> MenuTab::addColorComponent(const std::string& id, bool hasOpacity) {
-        auto color = std::make_shared<ColorComponent>(id, id, hasOpacity);
-        addComponent(color);
-        return color;
+    ColorComponent* MenuTab::addColorComponent(std::string id, bool hasOpacity) {
+        std::string title = id;
+        return this->addColorComponent(std::move(title), std::move(id), hasOpacity);
     }
 
-    std::shared_ptr<KeybindComponent> MenuTab::addKeybind(
-        const std::string& title, const std::string& id, bool canDelete
+    KeybindComponent* MenuTab::addKeybind(
+        std::string title, std::string id, bool canDelete
     ) {
-        auto keybind = std::make_shared<KeybindComponent>(title, id, canDelete);
-        addComponent(keybind);
-        return keybind;
+        return static_cast<KeybindComponent*>(this->addComponent(
+            std::make_unique<KeybindComponent>(std::move(title), std::move(id), canDelete)
+        ));
     }
 
-    std::shared_ptr<LabelSettingsComponent> MenuTab::addLabelSetting(labels::LabelSettings* settings) {
-        auto labelSettings = std::make_shared<LabelSettingsComponent>(settings);
-        addComponent(labelSettings);
-        return labelSettings;
+    LabelSettingsComponent* MenuTab::addLabelSetting(labels::LabelSettings* settings) {
+        return static_cast<LabelSettingsComponent*>(this->addComponent(
+            std::make_unique<LabelSettingsComponent>(settings)
+        ));
     }
 
-    std::shared_ptr<MenuTab> MenuTab::find(std::string_view name) { return Engine::get()->findTab(name); }
+    MenuTab* MenuTab::find(std::string_view name) { return &Engine::get().findTab(name); }
 
     void Engine::setRenderer(RendererType type) {
         // technical debt: think about how to better handle renderer switching
@@ -240,10 +224,10 @@ namespace eclipse::gui {
         switch (type) {
             default:
             case RendererType::ImGui:
-                m_renderer = std::make_shared<imgui::ImGuiRenderer>();
+                m_renderer = std::make_unique<imgui::ImGuiRenderer>();
                 break;
             case RendererType::Cocos2d:
-                m_renderer = std::make_shared<cocos::CocosRenderer>();
+                m_renderer = std::make_unique<cocos::CocosRenderer>();
                 break;
         }
 
@@ -257,14 +241,14 @@ namespace eclipse::gui {
     }
 
     RendererType Engine::getRendererType() {
-        auto engine = Engine::get();
-        if (!engine->isInitialized()) return RendererType::None;
-        if (!engine->m_renderer) return RendererType::None;
-        return engine->m_renderer->getType();
+        auto& engine = Engine::get();
+        if (!engine.isInitialized()) return RendererType::None;
+        if (!engine.m_renderer) return RendererType::None;
+        return engine.m_renderer->getType();
     }
 
-    std::shared_ptr<Engine> Engine::get() {
-        static auto s_engine = std::make_shared<Engine>();
+    Engine& Engine::get() {
+        static Engine s_engine;
         return s_engine;
     }
 
@@ -278,16 +262,15 @@ namespace eclipse::gui {
         m_renderer->toggle();
     }
 
-    std::shared_ptr<MenuTab> Engine::findTab(std::string_view name) {
-        for (auto tab : m_tabs) {
-            if (tab->getTitle() == name) {
+    MenuTab& Engine::findTab(std::string_view name) {
+        for (auto& tab : m_tabs) {
+            if (tab.getTitle() == name) {
                 return tab;
             }
         }
 
         // If the tab does not exist, create a new one.
-        auto tab = std::make_shared<MenuTab>(std::string(name), false);
-        m_tabs.push_back(tab);
+        m_tabs.emplace_back(std::string(name), false);
 
         // Make sure built-in tabs are sorted in a specific way and come first
         static constexpr std::array<std::string_view, 11> builtInTabs = {
@@ -295,9 +278,9 @@ namespace eclipse::gui {
             "tab.labels", "tab.shortcuts", "tab.keybinds", "tab.interface", "tab.recorder"
         };
 
-        std::ranges::sort(m_tabs, [](const auto& a, const auto& b) {
-            auto aIt = std::ranges::find(builtInTabs, a->getTitle());
-            auto bIt = std::ranges::find(builtInTabs, b->getTitle());
+        std::ranges::sort(m_tabs, [](auto const& a, auto const& b) {
+            auto aIt = std::ranges::find(builtInTabs, a.getTitle());
+            auto bIt = std::ranges::find(builtInTabs, b.getTitle());
             if (aIt != builtInTabs.end() && bIt != builtInTabs.end()) {
                 return aIt - builtInTabs.begin() < bIt - builtInTabs.begin();
             }
@@ -305,12 +288,17 @@ namespace eclipse::gui {
             if (aIt != builtInTabs.end()) return true;
             if (bIt != builtInTabs.end()) return false;
 
-            return a->getTitle() < b->getTitle();
+            return a.getTitle() < b.getTitle();
         });
 
         // tell the renderer to update the tabs if we're past the initialization stage
         if (m_initialized && m_renderer) m_renderer->updateTabs();
 
-        return tab;
+        // find the tab again (now that we sorted them)
+        return findTab(name);
+    }
+
+    Engine::Engine() {
+        m_tabs.reserve(16);
     }
 }

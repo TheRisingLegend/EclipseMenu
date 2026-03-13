@@ -14,7 +14,8 @@ public: type const& get##name() const { return member; }
 void set##name(type value) { member = value; }
 
 #define CR_PROPERTY(type, member, name) CR_PROPERTY_CS(type, member, name) \
-void set##name(type const& value) { member = value; }
+void set##name(type const& value) { member = value; }\
+void set##name(type&& value) { member = std::move(value); }
 
 #define COLOR_PROPERTY(member, name) CR_PROPERTY(Color, member, name)
 
@@ -29,7 +30,7 @@ namespace eclipse::gui {
     /// @brief Holds current theme configuration and manages saving/loading themes.
     class ThemeManager {
         /// @brief Loads current theme/default values
-        void init();
+        ThemeManager();
 
         /// @brief Sets all values to default ones. Used to ensure nothing is left uninitialized when loading a theme.
         void setDefaults();
@@ -37,7 +38,7 @@ namespace eclipse::gui {
         /// === Saving/loading
     public:
         /// @brief Get the theme manager instance
-        static std::shared_ptr<ThemeManager> get();
+        static ThemeManager* get();
 
         /// @brief Reloads the currently selected theme
         void reloadTheme();
@@ -53,7 +54,7 @@ namespace eclipse::gui {
         void saveTheme() const;
 
         /// @brief Stores theme values to a json object
-        void applyValues(nlohmann::json& json, bool flatten = false) const;
+        void applyValues(matjson::Value& json, bool flatten = false) const;
 
         /// @brief Imports a ZIP file with theme settings and fonts
         /// @return True if import was successful, or False in case an error happened
@@ -114,7 +115,7 @@ namespace eclipse::gui {
 
         /// [ImGui] Font file name
         CR_PROPERTY_CS(std::string, m_selectedFont, SelectedFont)
-        void setSelectedFont(const std::string& value);
+        void setSelectedFont(std::string value);
         void setSelectedFont(int index);
         static std::vector<std::string> getFontNames();
         /// [ImGui] Font size

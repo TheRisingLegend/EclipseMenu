@@ -10,18 +10,17 @@ namespace eclipse::gui {
             std::string title, std::string id, float min = FLT_MIN, float max = FLT_MAX, std::string format = "%.3f"
         );
 
-        void onInit() override {}
         void onUpdate() override {}
 
         /// @brief Set a callback function to be called when the component value changes.
-        InputFloatComponent* callback(const std::function<void(float)>& func);
+        InputFloatComponent* callback(Function<void(float)>&& func);
 
-        [[nodiscard]] const std::string& getId() const override;
-        [[nodiscard]] const std::string& getTitle() const override;
+        [[nodiscard]] std::string const& getId() const override;
+        [[nodiscard]] std::string const& getTitle() const override;
 
         [[nodiscard]] float getMin() const;
         [[nodiscard]] float getMax() const;
-        [[nodiscard]] const std::string& getFormat() const;
+        [[nodiscard]] std::string const& getFormat() const;
 
         void setMin(float min);
         void setMax(float max);
@@ -34,7 +33,7 @@ namespace eclipse::gui {
 
         InputFloatComponent* setDescription();
 
-        void triggerCallback(float value) const;
+        void triggerCallback(float value);
 
     private:
         std::string m_id;
@@ -42,6 +41,6 @@ namespace eclipse::gui {
         std::string m_format;
         float m_min;
         float m_max;
-        std::function<void(float)> m_callback;
+        Function<void(float)> m_callback;
     };
 }

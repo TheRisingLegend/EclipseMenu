@@ -5,7 +5,9 @@
 #include <modules/hack/hack.hpp>
 #include <modules/i18n/translations.hpp>
 
-struct ToggleDevToolsEvent : geode::Event { ToggleDevToolsEvent() {} };
+struct ToggleDevToolsEvent : geode::Event<ToggleDevToolsEvent, bool()> {
+    using Event::Event;
+};
 
 namespace eclipse::hacks::Shortcuts {
     class $hack(Shortcuts) {
@@ -123,7 +125,8 @@ namespace eclipse::hacks::Shortcuts {
                     level->m_normalPercent = 0;
                     level->m_newNormalPercent2 = 0;
                     level->m_orbCompletion = 0;
-                    level->m_54 = 0;
+                    // TODO: v5 geode
+                    // level->m_54 = 0;
                     level->m_platformerSeed = 0;
                     level->m_bestPoints = 0;
                     level->m_bestTime = 0;
@@ -166,14 +169,17 @@ namespace eclipse::hacks::Shortcuts {
 
         #ifdef GEODE_IS_WINDOWS
         static void injectDll() {
-            static geode::EventListener<FileEvent> m_listener;
             geode::utils::file::FilePickOptions::Filter filter;
             filter.description = "Dynamic Link Library (*.dll)";
             filter.files.insert("*.dll");
 
-            m_listener.bind([](FileEvent::Event* event) {
-                if (auto value = event->getValue()) {
-                    auto path = value->unwrapOr("");
+            geode::async::spawn(
+                geode::utils::file::pick(
+                    geode::utils::file::PickMode::OpenFile,
+                    {geode::dirs::getGameDir(), {filter}}
+                ),
+                [](geode::Result<std::optional<std::filesystem::path>> res) {
+                    auto path = std::move(res).unwrapOrDefault().value_or("");
                     std::error_code ec;
                     if (path.empty() || !std::filesystem::exists(path, ec))
                         return;
@@ -194,11 +200,7 @@ namespace eclipse::hacks::Shortcuts {
                         geode::log::error("Failed to inject DLL: {}", path);
                     }
                 }
-            });
-            m_listener.setFilter(geode::utils::file::pick(
-                geode::utils::file::PickMode::OpenFile,
-                {geode::dirs::getGameDir(), {filter}}
-            ));
+            );
         }
         #endif
 
@@ -228,7 +230,7 @@ namespace eclipse::hacks::Shortcuts {
             // reinterpret_cast<MenuLayer*>(utils::get<cocos2d::CCScene>())->onMoreGames(nullptr);
 
             // DevTools now has an event to open it
-            ToggleDevToolsEvent().post();
+            ToggleDevToolsEvent().send();
         }
 
         static int getSecretCoinsRange(int min, int max) {
@@ -328,26 +330,26 @@ namespace eclipse::hacks::Shortcuts {
             }
         }
 
-        constexpr static bool isJumpKey(keybinds::Keys key) {
+        constexpr static bool isJumpKey(keybinds::KeybindProps key) {
             return key == keybinds::Keys::Space || key == keybinds::Keys::Up ||
                    key == keybinds::Keys::W || key == keybinds::Keys::MouseLeft;
         }
 
         void init() override {
-            config::setIfEmpty("shortcut.p1jump", keybinds::Keys::None);
-            config::setIfEmpty("shortcut.p2jump", keybinds::Keys::None);
+            config::setIfEmpty<keybinds::KeybindProps>("shortcut.p1jump", keybinds::Keys::None);
+            config::setIfEmpty<keybinds::KeybindProps>("shortcut.p2jump", keybinds::Keys::None);
 
             auto tab = gui::MenuTab::find("tab.shortcuts");
             #ifdef GEODE_IS_DESKTOP
-            if (isJumpKey(config::get<keybinds::Keys>("shortcut.p1jump", keybinds::Keys::None)))
-                config::set("shortcut.p1jump", keybinds::Keys::None);
-            if (isJumpKey(config::get<keybinds::Keys>("shortcut.p2jump", keybinds::Keys::None)))
-                config::set("shortcut.p2jump", keybinds::Keys::None);
+            if (isJumpKey(config::get<keybinds::KeybindProps>("shortcut.p1jump", keybinds::Keys::None)))
+                config::set<keybinds::KeybindProps>("shortcut.p1jump", keybinds::Keys::None);
+            if (isJumpKey(config::get<keybinds::KeybindProps>("shortcut.p2jump", keybinds::Keys::None)))
+                config::set<keybinds::KeybindProps>("shortcut.p2jump", keybinds::Keys::None);
             tab->addKeybind("shortcuts.p1jump", "shortcut.p1jump", true)->setInternal()->callback([](auto key) {
-                if (isJumpKey(key)) config::set("shortcut.p1jump", keybinds::Keys::None);
+                if (isJumpKey(key)) config::set<keybinds::KeybindProps>("shortcut.p1jump", keybinds::Keys::None);
             });
             tab->addKeybind("shortcuts.p2jump", "shortcut.p2jump", true)->setInternal()->callback([](auto key) {
-                if (isJumpKey(key)) config::set("shortcut.p2jump", keybinds::Keys::None);
+                if (isJumpKey(key)) config::set<keybinds::KeybindProps>("shortcut.p2jump", keybinds::Keys::None);
             });
             #endif
             tab->addButton("shortcuts.options")->setDescription()->callback(openSettings)->handleKeybinds();
@@ -369,15 +371,15 @@ namespace eclipse::hacks::Shortcuts {
             #endif
 
             auto manager = keybinds::Manager::get();
-            manager->addListener("shortcut.p1jump", [](bool down) {
+            manager->addListener("shortcut.p1jump", [](auto evt) {
                 auto gameLayer = utils::get<GJBaseGameLayer>();
                 if (!gameLayer) return;
-                gameLayer->queueButton(1, down, false);
+                gameLayer->queueButton(1, evt.down, false, evt.timestamp);
             });
-            manager->addListener("shortcut.p2jump", [](bool down) {
+            manager->addListener("shortcut.p2jump", [](auto evt) {
                 auto gameLayer = utils::get<GJBaseGameLayer>();
                 if (!gameLayer) return;
-                gameLayer->queueButton(1, down, true);
+                gameLayer->queueButton(1, evt.down, true, evt.timestamp);
             });
         }
 

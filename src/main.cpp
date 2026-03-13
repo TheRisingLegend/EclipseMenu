@@ -31,8 +31,8 @@ using namespace eclipse;
 
 static bool s_isInitialized = false;
 
-static void toggleMenu(bool down = true) {
-    gui::Engine::get()->toggle();
+static void toggleMenu(keybinds::KeyEvent evt = {}) {
+    gui::Engine::get().toggle();
     config::save();
     gui::ThemeManager::get()->saveTheme();
 }
@@ -71,7 +71,7 @@ class $modify(EclipseButtonMLHook, MenuLayer) {
         gui::blur::init();
 
         // Initialize the GUI engine.
-        gui::Engine::get()->init();
+        gui::Engine::get().init();
 
         #ifdef ECLIPSE_USE_FLOATING_BUTTON
         // This will create the floating button and keep it across scenes
@@ -80,8 +80,8 @@ class $modify(EclipseButtonMLHook, MenuLayer) {
 
         // Register the keybind
         auto& key = keybinds::Manager::get()->registerKeybind("menu.toggle", "Toggle UI", toggleMenu);
-        config::setIfEmpty("menu.toggleKey", keybinds::Keys::Tab);
-        key.setKey(config::get<keybinds::Keys>("menu.toggleKey", keybinds::Keys::Tab));
+        config::setIfEmpty<keybinds::KeybindProps>("menu.toggleKey", keybinds::Keys::Tab);
+        key.setKey(config::get<keybinds::KeybindProps>("menu.toggleKey", keybinds::Keys::Tab));
         key.setInitialized(true);
         hack::lateInitializeHacks();
 
@@ -109,16 +109,6 @@ public:
     void update(float dt) override {
         for (const auto& hack : hack::getUpdatedHacks())
             hack->update();
-
-        // Add ability for ImGui to capture right click
-        if (s_isInitialized && gui::Engine::getRendererType() == gui::RendererType::ImGui) {
-            auto& io = ImGui::GetIO();
-            if (keybinds::isKeyPressed(keybinds::Keys::MouseRight)) {
-                io.AddMouseButtonEvent(1, true);
-            } else if (keybinds::isKeyReleased(keybinds::Keys::MouseRight)) {
-                io.AddMouseButtonEvent(1, false);
-            }
-        }
 
         keybinds::Manager::get()->update();
         gui::blur::update(dt);
@@ -243,6 +233,9 @@ $on_mod(Loaded) {
         });
         animateToggle->setFlags(ComponentFlags::OnlyTabbed);
 
+        config::setIfEmpty<bool>("menu.horizontallyCenter", true);
+        tab->addToggle("menu.horizontallyCenter")->setFlags(ComponentFlags::OnlyTabbed);
+
     #ifdef ECLIPSE_USE_FLOATING_BUTTON
 
         config::setIfEmpty<float>("float-btn.max-opacity", 1.f);
@@ -305,16 +298,17 @@ $on_mod(Loaded) {
             }
         })->disableSaving();
 
+        auto autoFocus = config::get<bool>("interface.search-auto-focus", false);
         auto searchInput = tab->addInputText("interface.search", "search");
         searchInput->callback([](std::string input) {
             static bool hasSearched = false;
 
             if (input.empty()) {
                 if (hasSearched) {
-                    for (auto& tab : Engine::get()->getTabs()) {
-                        tab->setSearchedFor(false);
+                    for (auto& tab : Engine::get().getTabs()) {
+                        tab.setSearchedFor(false);
 
-                        for (auto& component : tab->getComponents())
+                        for (auto& component : tab.getComponents())
                             component->removeFlag(ComponentFlags::SearchedFor);
                     }
 
@@ -323,20 +317,32 @@ $on_mod(Loaded) {
             } else {
                 hasSearched = true;
 
-                for (auto& tab : Engine::get()->getTabs()) {
+                for (auto& tab : Engine::get().getTabs()) {
                     bool hasFoundComponent = false;
 
-                    for (auto& component : tab->getComponents()) {
+                    for (auto& component : tab.getComponents()) {
                         if (utils::matchesStringFuzzy(i18n::get(component->getTitle()), input)) {
                             component->addFlag(ComponentFlags::SearchedFor);
                             hasFoundComponent = true;
                         } else component->removeFlag(ComponentFlags::SearchedFor);
                     }
 
-                    tab->setSearchedFor(hasFoundComponent);
+                    tab.setSearchedFor(hasFoundComponent);
                 }
             }
-        })->disableSaving()->setFlags(ComponentFlags::DisableCocos | ComponentFlags::StartWithKeyboardFocus);
+        })->disableSaving()
+        ->setFlags(
+            autoFocus ? ComponentFlags::DisableCocos | ComponentFlags::StartWithKeyboardFocus
+                      : ComponentFlags::DisableCocos
+        );
+        tab->addToggle("interface.search-auto-focus")
+            ->setDescription()->callback([searchInput](bool value) {
+                searchInput->setFlags(
+                    value ? ComponentFlags::DisableCocos | ComponentFlags::StartWithKeyboardFocus
+                          : ComponentFlags::DisableCocos
+                );
+            })
+            ->setFlags(ComponentFlags::DisableCocos);
     }
 
     // Schedule hack updates
@@ -346,7 +352,7 @@ $on_mod(Loaded) {
     );
 
     geode::listenForSettingChanges<std::string>("menu-style", [](std::string const& style) {
-        gui::Engine::get()->setRenderer(
+        gui::Engine::get().setRenderer(
             style == "ImGui" ? gui::RendererType::ImGui : gui::RendererType::Cocos2d
         );
     });

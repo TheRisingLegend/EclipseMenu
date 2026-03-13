@@ -1,8 +1,8 @@
 #pragma once
-#include <functional>
+#include <functional.hpp>
 #include <map>
 #include <string>
 
 namespace eclipse::api {
-    std::map<std::string, std::function<bool()>> const& getCheats();
+    geode::utils::StringMap<geode::Function<bool()>>& getCheats();
 }

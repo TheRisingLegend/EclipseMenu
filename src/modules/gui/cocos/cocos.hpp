@@ -12,11 +12,12 @@ namespace eclipse::gui::cocos {
     class ScrollLayer;
     class ContentView;
 
-    class CocosRenderer : public Renderer {
+    class CocosRenderer final : public Renderer {
     public:
-        static std::shared_ptr<CocosRenderer> get() {
-            if (Engine::getRendererType() != RendererType::Cocos2d) return nullptr;
-            return std::static_pointer_cast<CocosRenderer>(Engine::get()->getRenderer());
+        static CocosRenderer* get() {
+            auto& engine = Engine::get();
+            if (engine.getRendererType() != RendererType::Cocos2d) return nullptr;
+            return static_cast<CocosRenderer*>(engine.getRenderer());
         }
 
         void init() override;
@@ -28,8 +29,8 @@ namespace eclipse::gui::cocos {
 
         [[nodiscard]] Popup* getPopup() const { return m_popup; }
         bool isPartOfPopup(cocos2d::CCNode* node) const;
-        void queueAfterDrawing(const std::function<void()>& func) override;
-        void showPopup(const eclipse::Popup& popup) override;
+        void queueAfterDrawing(Function<void()>&& func) override;
+        void showPopup(eclipse::Popup&& popup) override;
 
         /// @brief Used to refresh the selected page contents in the popup. Use this when you edit components within the page.
         void refreshPage() const;

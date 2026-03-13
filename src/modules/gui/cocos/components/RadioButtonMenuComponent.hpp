@@ -7,12 +7,12 @@
 namespace eclipse::gui::cocos {
     class RadioButtonsMenuNode : public cocos2d::CCNode {
     protected:
-        std::vector<std::shared_ptr<RadioButtonComponent>> m_radioButtons;
+        std::vector<RadioButtonComponent*> m_radioButtons;
         std::vector<std::pair<CCMenuItemToggler*, int>> m_toggles;
 
     public:
         static cocos2d::CCSprite* createRadioButton(bool check) {
-            const auto tm = ThemeManager::get();
+            auto const tm = ThemeManager::get();
             auto box = cocos2d::CCSprite::createWithSpriteFrameName("circle.png"_spr);
             box->setScale(0.45f);
             if (check) {
@@ -25,8 +25,8 @@ namespace eclipse::gui::cocos {
             return box;
         }
 
-        void addRadioButton(std::shared_ptr<RadioButtonComponent> const& radioButton, float width) {
-            const auto tm = ThemeManager::get();
+        void addRadioButton(RadioButtonComponent* radioButton, float width) {
+            auto const tm = ThemeManager::get();
             constexpr float height = 28.f;
 
             auto node = cocos2d::CCMenu::create();
@@ -34,7 +34,7 @@ namespace eclipse::gui::cocos {
 
             auto choice = radioButton->getChoice();
             // 0.7
-            auto toggle = geode::cocos::CCMenuItemExt::createToggler(
+            auto toggle = createToggler(
                 createRadioButton(true), createRadioButton(false), [this, radioButton, choice](auto) {
                     radioButton->setValue(choice);
                     radioButton->triggerCallback(choice);
@@ -82,7 +82,7 @@ namespace eclipse::gui::cocos {
             return true;
         }
 
-        static RadioButtonsMenuNode* create(std::vector<std::shared_ptr<RadioButtonComponent>> radioButtons, float width) {
+        static RadioButtonsMenuNode* create(std::vector<RadioButtonComponent*> radioButtons, float width) {
             auto ret = new RadioButtonsMenuNode;
             ret->m_radioButtons = std::move(radioButtons);
             if (ret->init(width)) {

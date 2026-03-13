@@ -21,7 +21,7 @@ namespace eclipse::gui::cocos {
     void CocosRenderer::toggle() {
         if (m_popup) return shutdown();
 
-        m_popup = Popup::create(Engine::get()->getTabs());
+        m_popup = Popup::create(Engine::get().getTabs());
         m_popup->show();
         utils::updateCursorState(isToggled());
     }
@@ -56,12 +56,12 @@ namespace eclipse::gui::cocos {
 
     //since cocos is retained mode, extra work might not be needed
     //might need to change in the future IDK
-    void CocosRenderer::queueAfterDrawing(const std::function<void()>& func) {
+    void CocosRenderer::queueAfterDrawing(Function<void()>&& func) {
         func();
     }
 
-    void CocosRenderer::showPopup(const eclipse::Popup& popup) {
-        auto modal = ModalPopup::create(popup);
+    void CocosRenderer::showPopup(eclipse::Popup&& popup) {
+        auto modal = ModalPopup::create(std::move(popup));
         modal->show();
         m_extraPopups.push_back(modal);
     }
@@ -72,9 +72,9 @@ namespace eclipse::gui::cocos {
 
     std::string_view CocosRenderer::getSelectedTab() const {
         if (!m_popup) return "";
-        auto tabs = Engine::get()->getTabs();
+        auto& tabs = Engine::get().getTabs();
         auto idx = config::get<int>("menu.current_tab", 0);
         if (idx < 0 || idx >= tabs.size()) return "";
-        return tabs[idx]->getTitle();
+        return tabs[idx].getTitle();
     }
 }

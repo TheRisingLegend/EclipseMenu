@@ -8,7 +8,7 @@ namespace eclipse::gui::cocos {
     protected:
         TranslatedLabel* m_label = nullptr;
         CCMenuItemSpriteExtra* m_infoButton = nullptr;
-        cocos2d::extension::CCScale9Sprite* m_background = nullptr;
+        geode::NineSlice* m_background = nullptr;
         TranslatedLabel* m_valueLabel = nullptr;
 
         int m_index = 0;
@@ -38,7 +38,7 @@ namespace eclipse::gui::cocos {
 
         bool init(float width) {
             if (!CCMenu::init()) return false;
-            const auto tm = ThemeManager::get();
+            auto const tm = ThemeManager::get();
 
             m_component->onUpdate();
 
@@ -48,9 +48,12 @@ namespace eclipse::gui::cocos {
             auto labelSize = (width * 0.6f) - 35.f;
 
             if (!m_component->getDescription().empty()) {
-                m_infoButton = geode::cocos::CCMenuItemExt::createSpriteExtraWithFrameName("info.png"_spr, 0.35f, [this](auto) {
-                    this->openDescriptionPopup();
-                });
+                auto spr = cocos2d::CCSprite::createWithSpriteFrameName("info.png"_spr);
+                spr->setScale(0.35f);
+                m_infoButton = CCMenuItemSpriteExtra::create(
+                    spr, this,
+                    menu_selector(BaseComponentNode::openDescriptionPopup)
+                );
                 m_infoButton->setAnchorPoint({ 0.5, 0.5f });
                 m_infoButton->setColor(tm->getCheckboxCheckmarkColor().toCCColor3B());
                 this->addChildAtPosition(m_infoButton, geode::Anchor::Right, { -10.f, 0.f });
@@ -63,7 +66,7 @@ namespace eclipse::gui::cocos {
             m_label->limitLabelWidth(labelSize, 1.f, 0.25f);
             this->addChildAtPosition(m_label, geode::Anchor::Left, { 15.f, 0.f });
 
-            m_background = cocos2d::extension::CCScale9Sprite::create("square02b_001.png");
+            m_background = geode::NineSlice::create("square02b_001.png");
             m_background->setID("background");
             m_background->setAnchorPoint({ 0.5f, 0.5f });
             m_background->setScale(0.3f);

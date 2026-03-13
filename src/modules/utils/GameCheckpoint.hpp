@@ -15,7 +15,7 @@ namespace eclipse::utils {
             m_player2CollisionBlock = playLayer->m_player2CollisionBlock;
             m_extraDelta = playLayer->m_extraDelta;
             m_unk32d0 = playLayer->m_unk32d0;
-            m_queueInterval = playLayer->m_queueInterval;
+            // m_queueInterval = playLayer->m_queueInterval;
             m_unk32ec = playLayer->m_unk32ec;
             m_currentStep = playLayer->m_currentStep;
             m_unk3380 = playLayer->m_unk3380;
@@ -32,7 +32,7 @@ namespace eclipse::utils {
             playLayer->m_player2CollisionBlock = m_player2CollisionBlock;
             playLayer->m_extraDelta = m_extraDelta;
             playLayer->m_unk32d0 = m_unk32d0;
-            playLayer->m_queueInterval = m_queueInterval;
+            // playLayer->m_queueInterval = m_queueInterval;
             playLayer->m_unk32ec = m_unk32ec;
             playLayer->m_currentStep = m_currentStep;
             playLayer->m_unk3380 = m_unk3380;
@@ -133,10 +133,10 @@ namespace eclipse::utils {
             m_lastJumpTime = player->m_lastJumpTime;
             m_lastFlipTime = player->m_lastFlipTime;
             m_flashTime = player->m_flashTime;
-            m_flashRelated = player->m_flashRelated;
-            m_flashRelated1 = player->m_flashRelated1;
-            m_colorRelated2 = player->m_colorRelated2;
-            m_flashRelated3 = player->m_flashRelated3;
+            m_flashDuration = player->m_flashDuration;
+            m_flashDelay = player->m_flashDelay;
+            m_flashMainColor = player->m_flashMainColor;
+            m_flashSecondColor = player->m_flashSecondColor;
             m_lastSpiderFlipTime = player->m_lastSpiderFlipTime;
             m_unkBool5 = player->m_unkBool5;
             m_maybeIsVehicleGlowing = player->m_maybeIsVehicleGlowing;
@@ -171,8 +171,8 @@ namespace eclipse::utils {
             m_collidedRightMinX = player->m_collidedRightMinX;
             m_fadeOutStreak = player->m_fadeOutStreak;
             // m_canPlaceCheckpoint =  m_canPlaceCheckpointckpoint; (breaking)
-            m_colorRelated = player->m_colorRelated;
-            m_secondColorRelated = player->m_secondColorRelated;
+            m_originalMainColor = player->m_originalMainColor;
+            m_originalSecondColor = player->m_originalSecondColor;
             m_hasCustomGlowColor = player->m_hasCustomGlowColor>m_hasCustomGlowColor;
             m_glowColor = player->m_glowColor;
             m_maybeIsColliding = player->m_maybeIsColliding;
@@ -302,6 +302,19 @@ namespace eclipse::utils {
             m_position = player->m_position;
             m_rotation = player->getRotation();
 
+            m_positionX = player->m_positionX;
+            m_positionY = player->m_positionY;
+            m_unmodifiedPositionX = player->m_unmodifiedPositionX;
+            m_unmodifiedPositionY = player->m_unmodifiedPositionY;
+
+            m_rotationXOffset = player->m_rotationXOffset;
+            m_rotationYOffset = player->m_rotationYOffset;
+            m_fRotationX = player->m_fRotationX;
+            m_fRotationY = player->m_fRotationY;
+            m_isRotationAligned = player->m_isRotationAligned;
+            m_startRotationX = player->m_startRotationX;
+            m_startRotationY = player->m_startRotationY;
+
             #ifndef GEODE_IS_ANDROID
 
             m_rotateObjectsRelated = player->m_rotateObjectsRelated; // unordered_map<int, GJPointDouble>
@@ -333,7 +346,7 @@ namespace eclipse::utils {
             player->m_dashStartTime = m_dashStartTime;
             player->m_slopeStartTime = m_slopeStartTime;
             player->m_justPlacedStreak = m_justPlacedStreak;
-            player->m_maybeLastGroundObject = m_maybeLastGroundObject;
+            // player->m_maybeLastGroundObject = m_maybeLastGroundObject;
             player->m_lastCollisionBottom = m_lastCollisionBottom;
             player->m_lastCollisionTop = m_lastCollisionTop;
             player->m_lastCollisionLeft = m_lastCollisionLeft;
@@ -392,10 +405,10 @@ namespace eclipse::utils {
             player->m_lastJumpTime = m_lastJumpTime;
             player->m_lastFlipTime = m_lastFlipTime;
             player->m_flashTime = m_flashTime;
-            player->m_flashRelated = m_flashRelated;
-            player->m_flashRelated1 = m_flashRelated1;
-            player->m_colorRelated2 = m_colorRelated2;
-            player->m_flashRelated3 = m_flashRelated3;
+            player->m_flashDuration = m_flashDuration;
+            player->m_flashDelay = m_flashDelay;
+            player->m_flashMainColor = m_flashMainColor;
+            player->m_flashSecondColor = m_flashSecondColor;
             player->m_lastSpiderFlipTime = m_lastSpiderFlipTime;
             player->m_unkBool5 = m_unkBool5;
             player->m_maybeIsVehicleGlowing = m_maybeIsVehicleGlowing;
@@ -430,8 +443,8 @@ namespace eclipse::utils {
             player->m_collidedRightMinX = m_collidedRightMinX;
             player->m_fadeOutStreak = m_fadeOutStreak;
             // player->m_canPlaceCheckpoint = m_canPlaceCheckpoint; (breaking)
-            player->m_colorRelated = m_colorRelated;
-            player->m_secondColorRelated = m_secondColorRelated;
+            player->m_originalMainColor = m_originalMainColor;
+            player->m_originalSecondColor = m_originalSecondColor;
             player->m_hasCustomGlowColor = m_hasCustomGlowColor;
             player->m_glowColor = m_glowColor;
             player->m_maybeIsColliding = m_maybeIsColliding;
@@ -560,6 +573,18 @@ namespace eclipse::utils {
             player->m_position = m_position;
             player->setPosition(m_position);
             player->setRotation(m_rotation);
+            player->m_positionX = m_positionX;
+            player->m_positionY = m_positionY;
+            player->m_unmodifiedPositionX = m_unmodifiedPositionX;
+            player->m_unmodifiedPositionY = m_unmodifiedPositionY;
+
+            player->m_rotationXOffset = m_rotationXOffset;
+            player->m_rotationYOffset = m_rotationYOffset;
+            player->m_fRotationX = m_fRotationX;
+            player->m_fRotationY = m_fRotationY;
+            player->m_isRotationAligned = m_isRotationAligned;
+            player->m_startRotationX = m_startRotationX;
+            player->m_startRotationY = m_startRotationY;
 
             #ifndef GEODE_IS_ANDROID
 
@@ -653,10 +678,10 @@ namespace eclipse::utils {
         double m_lastJumpTime;
         double m_lastFlipTime;
         double m_flashTime;
-        float m_flashRelated;
-        float m_flashRelated1;
-        cocos2d::ccColor3B m_colorRelated2;
-        cocos2d::ccColor3B m_flashRelated3;
+        float m_flashDuration;
+        float m_flashDelay;
+        cocos2d::ccColor3B m_flashMainColor;
+        cocos2d::ccColor3B m_flashSecondColor;
         double m_lastSpiderFlipTime;
         bool m_unkBool5;
         bool m_maybeIsVehicleGlowing;
@@ -691,8 +716,8 @@ namespace eclipse::utils {
         double m_collidedRightMinX;
         bool m_fadeOutStreak;
         // bool m_canPlaceCheckpoint; (breaking)
-        cocos2d::ccColor3B m_colorRelated;
-        cocos2d::ccColor3B m_secondColorRelated;
+        cocos2d::ccColor3B m_originalMainColor;
+        cocos2d::ccColor3B m_originalSecondColor;
         bool m_hasCustomGlowColor;
         cocos2d::ccColor3B m_glowColor;
         bool m_maybeIsColliding;
@@ -818,6 +843,18 @@ namespace eclipse::utils {
         bool m_robotAnimation1Enabled;
         bool m_robotAnimation2Enabled;
         bool m_spiderAnimationEnabled;
+
+        double m_positionX;
+        double m_positionY;
+        float m_unmodifiedPositionX;
+        float m_unmodifiedPositionY;
+        float m_rotationXOffset;
+        float m_rotationYOffset;
+        float m_fRotationX;
+        float m_fRotationY;
+        bool m_isRotationAligned;
+        float m_startRotationX;
+        float m_startRotationY;
 
         // these dont work well on android
         // (P.S. robtop pls update NDK)

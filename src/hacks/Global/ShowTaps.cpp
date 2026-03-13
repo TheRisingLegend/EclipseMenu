@@ -17,9 +17,9 @@ namespace eclipse::hacks::Global {
         if (touchNodes.empty()) return;
 
         bool fill = config::get<bool>("global.show-taps.fill", true);
-        int radius = (config::get<float>("global.show-taps.scale", 0.5F) * 16.F);
-        int segments = (config::get<float>("global.show-taps.scale", 0.5F) * 32.F);
-        auto color = config::get<gui::Color>("global.show-taps.color", gui::Color::WHITE).toCCColor3B();
+        int radius = (config::get<double>("global.show-taps.scale", 0.5F) * 16.F);
+        int segments = (config::get<double>("global.show-taps.scale", 0.5F) * 32.F);
+        auto color = config::get<gui::Color>("global.show-taps.color", gui::Colors::WHITE).toCCColor3B();
 
         int stroke = config::get<int>("global.show-taps.stroke", 0);
 
@@ -56,9 +56,9 @@ namespace eclipse::hacks::Global {
             config::setIfEmpty("global.show-taps.scale", 0.5F);
             config::setIfEmpty("global.show-taps.opacity", 50);
             config::setIfEmpty("global.show-taps.stroke", 0);
-            config::setIfEmpty("global.show-taps.color", gui::Color::WHITE);
+            config::setIfEmpty("global.show-taps.color", gui::Colors::WHITE);
 
-            tab->addToggle("global.show-taps")->setDescription()->handleKeybinds()->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+            tab->addToggle("global.show-taps")->setDescription()->handleKeybinds()->addOptions([](auto options) {
                 options->addToggle("global.show-taps.fill")->setDescription();
                 options->addInputFloat("global.show-taps.scale", 0.01f, 5.f, "%.2f");
                 options->addInputInt("global.show-taps.stroke", 0, 10);

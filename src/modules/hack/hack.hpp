@@ -7,37 +7,33 @@ constexpr int32_t SAFE_HOOK_PRIORITY = 0x500000;
 constexpr int32_t FIRST_HOOK_PRIORITY = -0x500000;
 
 namespace eclipse::hack {
-    void safeHooksAll(std::map<std::string, std::shared_ptr<geode::Hook>>& hooks);
+    void safeHooksAll(geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks);
     void safeHooks(
-        std::map<std::string, std::shared_ptr<geode::Hook>>& hooks,
+        geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks,
         std::string_view className,
         std::initializer_list<std::string_view> funcs
     );
 
-    void firstHooksAll(std::map<std::string, std::shared_ptr<geode::Hook>>& hooks);
+    void firstHooksAll(geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks);
     void firstHooks(
-        std::map<std::string, std::shared_ptr<geode::Hook>>& hooks,
+        geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks,
         std::string_view className,
         std::initializer_list<std::string_view> funcs
     );
 
     void setupTogglesAll(
         std::string_view id,
-        std::map<std::string, std::shared_ptr<geode::Hook>>& hooks
+        geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks
     );
     void setupToggles(
         std::string_view id,
-        std::map<std::string, std::shared_ptr<geode::Hook>>& hooks,
+        geode::utils::StringMap<std::shared_ptr<geode::Hook>>& hooks,
         std::string_view className,
         std::initializer_list<std::string_view> funcs
     );
 }
 
-#define SAFE_SET_PRIO(name, prio) do { \
-    if (!self.setHookPriority(name, prio)) { \
-        geode::log::warn("Failed to set {} hook priority!", name); \
-    } \
-} while (0)
+#define SAFE_SET_PRIO(name, prio) (void) self.setHookPriority(name, prio)
 
 #define SAFE_PRIORITY(name) SAFE_SET_PRIO(name, SAFE_HOOK_PRIORITY)
 #define FIRST_PRIORITY(name) SAFE_SET_PRIO(name, FIRST_HOOK_PRIORITY)

@@ -14,11 +14,11 @@ namespace eclipse::gui::cocos {
     template<typename S, typename T, typename U, typename... Args>
     class BaseComponentNode : public T {
     protected:
-        std::shared_ptr<U> m_component;
+        U* m_component{};
     public:
-        static S* create(const std::shared_ptr<Component>& component, Args... args) {
+        static S* create(Component* component, Args... args) {
             auto ret = new S;
-            ret->m_component = std::static_pointer_cast<U>(component);
+            ret->m_component = static_cast<U*>(component);
             if (ret->S::init(args...)) {
                 ret->autorelease();
                 return ret;
@@ -27,15 +27,15 @@ namespace eclipse::gui::cocos {
             return nullptr;
         }
 
-        void openDescriptionPopup() {
+        void openDescriptionPopup(cocos2d::CCObject*) {
             eclipse::Popup::create(
                 i18n::get_(m_component->getTitle()),
                 i18n::get_(m_component->getDescription())
             );
         }
 
-        static cocos2d::CCSprite* createButton(const char* innerFrameName, float scale = 0.4f) {
-            const auto tm = ThemeManager::get();
+        static cocos2d::CCSprite* createButton(char const* innerFrameName, float scale = 0.4f) {
+            auto const tm = ThemeManager::get();
             auto box = cocos2d::CCSprite::createWithSpriteFrameName("rectangle.png"_spr);
             box->setScale(scale);
             if (innerFrameName) {

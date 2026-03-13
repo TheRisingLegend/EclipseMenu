@@ -32,7 +32,7 @@ namespace eclipse::gui::blur {
     float blurTimer = 0.f;
     float blurProgress = 0.f;
 
-    geode::Result<std::string> Shader::compile(const std::filesystem::path& vertexPath, const std::filesystem::path& fragmentPath) {
+    geode::Result<std::string> Shader::compile(std::filesystem::path const& vertexPath, std::filesystem::path const& fragmentPath) {
         auto vertexSource = geode::utils::file::readString(vertexPath);
 
         if (!vertexSource)
@@ -328,15 +328,9 @@ namespace eclipse::gui::blur {
 
     void init() {
         geode::listenForSettingChanges<bool>("legacy-render", [](bool value) {
-            geode::queueInMainThread([]() {
-                cleanupPostProcess();
-                setupPostProcess();
-            });
+            geode::queueInMainThread(cleanup);
         });
-        geode::queueInMainThread([]() {
-            cleanupPostProcess();
-            setupPostProcess();
-        });
+        geode::queueInMainThread(cleanup);
 
         auto tm = ThemeManager::get();
         toggle(tm->getBlurEnabled());
@@ -345,7 +339,7 @@ namespace eclipse::gui::blur {
     void update(float) {
         auto tm = ThemeManager::get();
         auto duration = tm->getBlurSpeed();
-        auto toggled = Engine::get()->isToggled();
+        auto toggled = Engine::get().isToggled();
 
         auto deltaTimeMod = utils::get<cocos2d::CCDirector>()->getActualDeltaTime();
         blurTimer += toggled ? deltaTimeMod : -deltaTimeMod;

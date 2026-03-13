@@ -14,11 +14,11 @@ namespace eclipse::gui::cocos {
         ScrollLayer* m_contentLayer = nullptr;
 
     public:
-        static ContentView* create(cocos2d::CCSize const& size, const std::shared_ptr<MenuTab>& tab);
-        void setContent(const std::shared_ptr<MenuTab>& tab, bool resetScroll = true) const;
+        static ContentView* create(cocos2d::CCSize const& size, MenuTab const& tab);
+        void setContent(MenuTab const& tab, bool resetScroll = true) const;
 
     protected:
-        bool init(cocos2d::CCSize const& size, const std::shared_ptr<MenuTab>& tab);
-        void loadContent(const std::shared_ptr<MenuTab>& tab) const;
+        bool init(cocos2d::CCSize const& size, MenuTab const& tab);
+        void loadContent(MenuTab const& tab) const;
     };
 }

@@ -16,7 +16,7 @@ namespace eclipse::hacks::Global {
             config::setIfEmpty("level.accuratepercentage.show_minutes", true);
 
             tab->addToggle("level.accuratepercentage")->setDescription()->handleKeybinds()
-               ->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+               ->addOptions([](auto options) {
                    options->addToggle("level.accuratepercentage.normal_mode");
                    options->addInputInt("level.accuratepercentage.amount", 0, 15);
                    options->addToggle("level.accuratepercentage.bugfix");
@@ -32,7 +32,7 @@ namespace eclipse::hacks::Global {
     class $modify(AccuratePercentagePLHook, PlayLayer) {
         ADD_HOOKS_DELEGATE("level.accuratepercentage")
 
-        float customGetProgress() {
+        double customGetProgress() {
             if (config::get<"level.accuratepercentage.bugfix", bool>(true))
                 return utils::getActualProgress(this);
             return this->getCurrentPercent();
@@ -47,7 +47,7 @@ namespace eclipse::hacks::Global {
                 auto time = utils::formatTime(m_timePlayed);
                 m_percentageLabel->setString(time.c_str());
             } else if (config::get<"level.accuratepercentage.normal_mode", bool>(true)) {
-                float percent = customGetProgress();
+                auto percent = customGetProgress();
                 auto numDigits = config::get<int>("level.accuratepercentage.amount", 4);
                 if (numDigits > 0) {
                     m_percentageLabel->setString(fmt::format("{:.{}f}%", percent, numDigits).c_str());
@@ -59,8 +59,8 @@ namespace eclipse::hacks::Global {
                 if (!config::get<"level.accuratepercentage.bugfix", bool>(true)) return;
                 m_progressFill->setTextureRect({
                     0, 0,
-                    (m_progressBar->getTextureRect().getMaxX() - 5) * percent / 100.f,
-                    m_progressBar->getTextureRect().getMaxY() / 2
+                    static_cast<float>(m_progressWidth * percent / 100.0),
+                    m_progressHeight
                 });
             }
         }

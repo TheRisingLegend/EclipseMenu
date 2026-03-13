@@ -16,25 +16,27 @@
 
 #include <rift/config.hpp>
 
-#include <dankmeme.globed2/include/globed.hpp>
+// #include <dankmeme.globed2/include/globed.hpp>
 
 namespace eclipse::labels {
     static std::vector<EffectGameObject*> s_coins;
 
     rift::Value getConfigValue(std::string const& key) {
-        if (!config::has(key)) {
-            return {};
-        }
         switch (config::getType(key)) {
-            case nlohmann::detail::value_t::string: return config::get<std::string>(key).unwrap();
-            case nlohmann::detail::value_t::boolean: return config::get<bool>(key).unwrap();
-            case nlohmann::detail::value_t::number_integer: return config::get<int>(key).unwrap();
-            case nlohmann::detail::value_t::number_float: return config::get<float>(key).unwrap();
+            case matjson::Type::String: return config::get<std::string>(key).unwrap();
+            case matjson::Type::Bool: return config::get<bool>(key).unwrap();
+            case matjson::Type::Object: return config::get<matjson::Value>(key).unwrap();
+            case matjson::Type::Number: {
+                if (config::getStorage()[key].isExactlyDouble()) {
+                    return config::get<double>(key).unwrap();
+                }
+                return config::get<int64_t>(key).unwrap();
+            }
             default: return {};
         }
     }
 
-    $on_mod(Loaded) {
+    $execute {
         rift::Config::get().makeFunction("cfg", getConfigValue);
     }
 
@@ -153,21 +155,21 @@ namespace eclipse::labels {
         refetch();
     }
 
-    void VariableManager::setVariable(const std::string& name, const rift::Value& value) {
-        m_variables[name] = value;
+    void VariableManager::setVariable(std::string name, rift::Value&& value) {
+        m_variables[std::move(name)] = std::move(value);
     }
 
-    rift::Value VariableManager::getVariable(const std::string& name) const {
+    rift::Value VariableManager::getVariable(std::string const& name) const {
         auto it = m_variables.find(name);
         if (it == m_variables.end()) return {};
         return it->second;
     }
 
-    bool VariableManager::hasVariable(const std::string& name) const {
+    bool VariableManager::hasVariable(std::string const& name) const {
         return m_variables.contains(name);
     }
 
-    void VariableManager::removeVariable(const std::string& name) {
+    void VariableManager::removeVariable(std::string const& name) {
         m_variables.erase(name);
     }
 
@@ -206,7 +208,7 @@ namespace eclipse::labels {
         }
     }
 
-    const char* getLevelRatingString(GJGameLevel* level) {
+    static std::string_view getLevelRatingString(GJGameLevel* level) {
         if (!level) return "Unknown";
         int featured = level->m_featured;
         int epic = level->m_isEpic;
@@ -226,7 +228,7 @@ namespace eclipse::labels {
         }
     }
 
-    const char* getLevelDifficultyString(LevelDifficulty diff) {
+    static std::string_view getLevelDifficultyString(LevelDifficulty diff) {
         switch (diff) {
             case LevelDifficulty::NA: return "N/A";
             case LevelDifficulty::Auto: return "Auto";
@@ -244,7 +246,7 @@ namespace eclipse::labels {
         }
     }
 
-    const char* getLevelDifficultyKey(LevelDifficulty diff) {
+    static std::string_view getLevelDifficultyKey(LevelDifficulty diff) {
         switch (diff) {
             case LevelDifficulty::NA: return "na";
             case LevelDifficulty::Auto: return "auto";
@@ -299,11 +301,11 @@ namespace eclipse::labels {
 
     constexpr int FIRST_PATH = 30;
     constexpr int LAST_PATH = 39;
-    static const std::array<std::string, 10> PATH_NAMES = {
+    static std::array<std::string, 10> const PATH_NAMES = {
         "fire", "ice", "poison", "shadow", "lava",
         "earth", "blood", "metal", "light", "soul"
     };
-    static const std::array<std::string, 15> STAT_NAMES_1 = {
+    static std::array<std::string, 15> const STAT_NAMES_1 = {
         "totalJumps", "totalAttempts", "completedLevels", "completedOnlineLevels",
         "demons", "stars", "completedMapPacks", "goldCoins", "playersDestroyed",
         "likedLevels", "ratedLevels", "userCoins", "diamonds", "orbs", "dailies",
@@ -425,7 +427,7 @@ namespace eclipse::labels {
 
     void VariableManager::fetchTimeData() {
         auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        auto localTime = fmt::localtime(time);
+        auto localTime = geode::localtime(time);
         m_variables["hour"] = localTime.tm_hour;
         m_variables["minute"] = localTime.tm_min;
         m_variables["second"] = localTime.tm_sec;
@@ -445,7 +447,7 @@ namespace eclipse::labels {
         m_variables["framestepper"] = config::get("player.framestepper", false);
     }
 
-    static std::string const& cachedBase64Decode(const std::string& str) {
+    static std::string const& cachedBase64Decode(std::string const& str) {
         static std::string s_lastStr;
         static std::string s_lastDecoded;
         if (str == s_lastStr) return s_lastDecoded;
@@ -464,7 +466,7 @@ namespace eclipse::labels {
                || levelID == 3001; // "The Challenge"
     }
 
-    int getTotalOrbsForLevel(GJGameLevel* level, int levelID) {
+    static int getTotalOrbsForLevel(GJGameLevel* level, int levelID) {
         static int s_lastLevelID = -1;
         static int s_lastTotalOrbs = 0;
         if (levelID == s_lastLevelID) return s_lastTotalOrbs;
@@ -473,7 +475,7 @@ namespace eclipse::labels {
         return s_lastTotalOrbs;
     }
 
-    int getCurrentOrbsForLevel(GJGameLevel* level, int levelID) {
+    static int getCurrentOrbsForLevel(GJGameLevel* level, int levelID) {
         auto gsm = utils::get<GameStatsManager>();
         auto totalOrbs = getTotalOrbsForLevel(level, levelID);
         auto dailyId = level->m_dailyID.value();
@@ -511,7 +513,7 @@ namespace eclipse::labels {
                 "difficulty", "difficultyKey", "practicePercent",
                 "bestPercent", "bestTime", "best"
             };
-            for (const auto& key : keys) {
+            for (auto const& key : keys) {
                 removeVariable(key);
             }
             return;
@@ -546,9 +548,9 @@ namespace eclipse::labels {
         if (!player) {
             // Reset all player variables
             constexpr std::array keys = {
-                "playerX", "playerY", "player2X", "player2Y"
+                "playerX", "playerY", "player2X", "player2Y", "playerXVelocity", "playerYVelocity", "player2XVelocity", "player2YVelocity"
             };
-            for (const auto& key : keys) {
+            for (auto const& key : keys) {
                 removeVariable(key);
             }
             if (!isPlayer2) {
@@ -561,6 +563,9 @@ namespace eclipse::labels {
 
         m_variables[isPlayer2 ? "player2X" : "playerX"] = player->m_position.x;
         m_variables[isPlayer2 ? "player2Y" : "playerY"] = player->m_position.y;
+
+        m_variables[isPlayer2 ? "player2XVelocity" : "playerXVelocity"] = player->m_isPlatformer ? player->m_platformerXVelocity : player->m_playerSpeed;
+        m_variables[isPlayer2 ? "player2YVelocity" : "playerYVelocity"] = player->m_yVelocity;
 
         if (!isPlayer2) {
             auto gamemode = utils::getGameMode(player);
@@ -578,7 +583,7 @@ namespace eclipse::labels {
                 "isDead", "isDualMode", "noclipDeaths", "noclipAccuracy", "progress",
                 "editorMode", "realProgress", "objects"
             };
-            for (const auto& key : keys) {
+            for (auto const& key : keys) {
                 removeVariable(key);
             }
 
@@ -597,7 +602,7 @@ namespace eclipse::labels {
         m_variables["levelLength"] = gameLayer->m_levelLength;
         m_variables["levelDuration"] = gameLayer->m_level->m_timestamp / 240.f;
         m_variables["time"] = utils::formatTime(gameLayer->m_gameState.m_levelTime);
-        m_variables["frame"] = gameLayer->m_gameState.m_currentProgress;
+        m_variables["frame"] = (int64_t)gameLayer->m_gameState.m_currentProgress;
         m_variables["frameReal"] = gameLayer->m_gameState.m_levelTime * utils::getTPS();
         m_variables["isDead"] = gameLayer->m_player1->m_isDead;
         m_variables["isDualMode"] = gameLayer->m_player2 != nullptr && gameLayer->m_player2->isRunning();
@@ -609,6 +614,7 @@ namespace eclipse::labels {
         m_variables["activeObjects"] = gameLayer->m_activeObjectsCount;
         m_variables["gradients"] = gameLayer->m_activeGradients;
         m_variables["particleCount"] = gameLayer->m_particleCount;
+        m_variables["randomSeed"] = static_cast<int64_t>(GameToolbox::getfast_srand());
 
         auto fmod = utils::get<FMODAudioEngine>();
         m_variables["songsCount"] = fmod->countActiveMusic();
@@ -664,23 +670,26 @@ namespace eclipse::labels {
         fetchPlayerData(gameLayer->m_player2, true);
     }
 
-    void fetchGlobedData(rift::Object& variables) {
+    static void fetchGlobedData(rift::Object& variables) {
         auto& globed = variables["globed"];
-        globed[std::string("enabled")] = geode::Loader::get()->isModLoaded("dankmeme.globed2");
-        if (globed[std::string("enabled")]) {
-            // net
-            globed[std::string("isConnected")] = globed::net::isConnected().unwrapOrDefault();
-            globed[std::string("ping")] = (int)globed::net::getPing().unwrapOrDefault();
-            globed[std::string("tps")] = (int)globed::net::getServerTps().unwrapOrDefault();
 
-            // suggestion for daniel meme to add:
-            // serverName
-            // roomName
-            // roomId
-            // other room things
-            globed[std::string("playersOnline")] = (int)globed::player::playersOnline().unwrapOrDefault();
-            globed[std::string("playersOnLevel")] = (int)globed::player::playersOnLevel().unwrapOrDefault();
-        }
+        auto enabled = geode::Loader::get()->isModLoaded("dankmeme.globed2");
+        globed[std::string("enabled")] = enabled;
+
+        // if (enabled) {
+        //     // net
+        //     globed[std::string("isConnected")] = globed::net::isConnected().unwrapOrDefault();
+        //     globed[std::string("ping")] = (int64_t)globed::net::getPing().unwrapOrDefault();
+        //     globed[std::string("tps")] = (int64_t)globed::net::getServerTps().unwrapOrDefault();
+        //
+        //     // suggestion for daniel meme to add:
+        //     // serverName
+        //     // roomName
+        //     // roomId
+        //     // other room things
+        //     globed[std::string("playersOnline")] = (int64_t)globed::player::playersOnline().unwrapOrDefault();
+        //     globed[std::string("playersOnLevel")] = (int64_t)globed::player::playersOnLevel().unwrapOrDefault();
+        // }
     }
 
     void VariableManager::refetch() {
@@ -701,9 +710,7 @@ namespace eclipse::labels {
     }
 
     class $modify(LabelsGJBGLHook, GJBaseGameLayer) {
-        void processCommands(float dt) {
-            GJBaseGameLayer::processCommands(dt);
-
+        static void updateTPS() {
             static time_t s_lastUpdate = utils::getTimestamp();
             static size_t s_frames = 0;
             s_frames++;
@@ -717,6 +724,18 @@ namespace eclipse::labels {
                 s_frames = 0;
             }
         }
+
+        #ifndef GEODE_IS_MACOS
+        void processCommands(float dt, bool isHalfTick, bool isLastTick) {
+            GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
+            this->updateTPS();
+        }
+        #else
+        void processQueuedButtons(float dt, bool clearInputQueue) {
+            GJBaseGameLayer::processQueuedButtons(dt, clearInputQueue);
+            this->updateTPS();
+        }
+        #endif
     };
 
     class $modify(VariablesPLHook, PlayLayer) {
@@ -759,7 +778,7 @@ namespace eclipse::labels {
             if(config::get<"player.noclip", bool>(false) && !m_levelEndAnimationStarted && !m_hasCompletedLevel) {
                 if (config::get<"player.noclip.acclimit.toggle", bool>(false)) {
                     float acc = config::getTemp<float>("noclipAccuracy", 100.f);
-                    float limit = config::get<"player.noclip.acclimit", float>(95.f);
+                    float limit = config::get<"player.noclip.acclimit", double>(95.f);
                     if (acc >= limit)
                         return false;
                 }
@@ -800,7 +819,7 @@ namespace eclipse::labels {
             }
         }
 
-        void resetLevel() {
+        void resetLevel() override {
             PlayLayer::resetLevel();
             auto from = utils::getActualProgress(this);
             m_fields->m_runFrom = from;

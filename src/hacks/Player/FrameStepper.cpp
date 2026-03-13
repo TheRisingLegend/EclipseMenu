@@ -15,18 +15,18 @@ namespace eclipse::hacks::Player {
 
     class $hack(FrameStepper) {
         static bool isPressed() {
-            auto stepKey = config::get<"player.framestepper.step_key", keybinds::Keys>(keybinds::Keys::C);
+            auto stepKey = config::get<"player.framestepper.step_key", keybinds::KeybindProps>(keybinds::Keys::C);
             return s_frameStepperPressed || keybinds::isKeyPressed(stepKey);
         }
 
         static bool isDown() {
-            auto stepKey = config::get<"player.framestepper.step_key", keybinds::Keys>(keybinds::Keys::C);
+            auto stepKey = config::get<"player.framestepper.step_key", keybinds::KeybindProps>(keybinds::Keys::C);
             return s_frameStepperDown || keybinds::isKeyDown(stepKey);
         }
 
         void init() override {
             config::setIfEmpty("player.framestepper", false);
-            config::setIfEmpty("player.framestepper.step_key", keybinds::Keys::C);
+            config::setIfEmpty<keybinds::KeybindProps>("player.framestepper.step_key", keybinds::Keys::C);
             config::setIfEmpty("player.framestepper.hold", true);
             config::setIfEmpty("player.framestepper.hold_delay", 0.25f);
             config::setIfEmpty("player.framestepper.hold_speed", 5);
@@ -36,7 +36,7 @@ namespace eclipse::hacks::Player {
             tab->addToggle("player.framestepper")
                ->setDescription()
                ->handleKeybinds()
-               ->addOptions([](std::shared_ptr<gui::MenuTab> options) {
+               ->addOptions([](auto options) {
                    options->addKeybind("player.framestepper.step_key", "player.framestepper.step_key")
                           ->setDefaultKey(keybinds::Keys::C);
                    options->addToggle("player.framestepper.hold");
@@ -85,7 +85,7 @@ namespace eclipse::hacks::Player {
                     s_holdDelayTimer = 0;
 
                 // Add a grace period after the first press to allow for holding
-                auto delay = config::get<float>("player.framestepper.hold_delay", 0.25f);
+                auto delay = config::get<double>("player.framestepper.hold_delay", 0.25f);
                 if (FrameStepper::isDown()) {
                     shouldStep = firstPress;
                     s_holdAdvanceTimer++;
@@ -109,9 +109,9 @@ namespace eclipse::hacks::Player {
     /// @brief A button with callbacks for holding and releasing
     class HoldingMenuItem : public CCMenuItemSpriteExtra {
     public:
-        static HoldingMenuItem* create(cocos2d::CCSprite* sprite, const std::function<void()>& onHold, const std::function<void()>& onRelease) {
+        static HoldingMenuItem* create(cocos2d::CCSprite* sprite, Function<void()>&& onHold, Function<void()>&& onRelease) {
             auto ret = new HoldingMenuItem();
-            if (ret->init(sprite, onHold, onRelease)) {
+            if (ret->init(sprite, std::move(onHold), std::move(onRelease))) {
                 ret->autorelease();
                 return ret;
             }
@@ -119,12 +119,12 @@ namespace eclipse::hacks::Player {
             return nullptr;
         }
 
-        bool init(cocos2d::CCSprite* sprite, const std::function<void()>& onHold, const std::function<void()>& onRelease) {
+        bool init(cocos2d::CCSprite* sprite, Function<void()>&& onHold, Function<void()>&& onRelease) {
             if (!CCMenuItemSpriteExtra::init(sprite, nullptr, nullptr, nullptr))
                 return false;
 
-            m_onHold = onHold;
-            m_onRelease = onRelease;
+            m_onHold = std::move(onHold);
+            m_onRelease = std::move(onRelease);
 
             return true;
         }
@@ -140,8 +140,8 @@ namespace eclipse::hacks::Player {
         }
 
     private:
-        std::function<void()> m_onHold;
-        std::function<void()> m_onRelease;
+        Function<void()> m_onHold;
+        Function<void()> m_onRelease;
     };
 
     class FrameStepControl : public cocos2d::CCMenu {
